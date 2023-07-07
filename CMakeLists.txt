@@ -36,6 +36,7 @@ find_package(Python 3.8
 find_package(nanobind CONFIG REQUIRED)
 
 set(Protobuf_USE_STATIC_LIBS on)
+set(protobuf_MSVC_STATIC_RUNTIME off)
 
 include(cmake/CPM.cmake)
 
