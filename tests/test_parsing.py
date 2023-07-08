@@ -108,7 +108,7 @@ def test_int64(ctx):
 
     assert actual['data'] == 7
 
-def test_int64(ctx):
+def test_int64_repeated(ctx):
     ctx.add_proto('test',
         """
         syntax = "proto3";
@@ -135,7 +135,7 @@ def test_uint64(ctx):
 
     assert actual['data'] == 7
 
-def test_uint64(ctx):
+def test_uint64_repeated(ctx):
     ctx.add_proto('test',
         """
         syntax = "proto3";
