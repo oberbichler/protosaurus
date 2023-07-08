@@ -1,6 +1,6 @@
 #pragma once
 
-#include "internal/json.h"
+#include "detail/json.h"
 
 #include <protosaurus/protosaurus.h>
 
@@ -96,7 +96,7 @@ public:
 
     out << std::boolalpha;
 
-    internal::push_msg(out, *message);
+    detail::push_msg(out, *message);
 
     return out.str();
   }

@@ -11,7 +11,7 @@ using namespace google::protobuf;
 using namespace google::protobuf::io;
 using namespace google::protobuf::compiler;
 
-namespace protosaurus::internal {
+namespace protosaurus::detail {
 
   struct enumeration {};
 
@@ -79,8 +79,8 @@ namespace protosaurus::internal {
 
   template <typename T>
   void push(std::ostream& out, const Message& message, const Reflection& reflection, const FieldDescriptor& field) {
-    using protosaurus::internal::push_val;
-    using protosaurus::internal::push_ith;
+    using protosaurus::detail::push_val;
+    using protosaurus::detail::push_ith;
 
     if (field.is_repeated()) {
       out << "[";
@@ -184,4 +184,4 @@ namespace protosaurus::internal {
     out << "}";
   }
 
-}  // namespace protosaurus::internal
+}  // namespace protosaurus::detail
