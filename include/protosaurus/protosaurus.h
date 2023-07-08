@@ -45,7 +45,7 @@ public:
     Parser parser;
 
     if (!parser.Parse(&input, &file_descriptor_proto)) {
-      throw new std::runtime_error("Could not parse proto");
+      throw std::runtime_error("Could not parse proto");
     }
 
     if (!file_descriptor_proto.has_name()) {
@@ -55,7 +55,7 @@ public:
     const FileDescriptor* file_desc = m_pool.BuildFile(file_descriptor_proto);
 
     if (file_desc == nullptr) {
-      throw new std::runtime_error("Could not get a file descriptor from .proto");
+      throw std::runtime_error("Could not get a file descriptor from .proto");
     }
   }
 
