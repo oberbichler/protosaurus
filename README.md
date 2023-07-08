@@ -2,6 +2,18 @@
 
 Parse ProtoBuffer messages at runtime.
 
+[![Pip Action Status][actions-pip-badge]][actions-pip-link]
+[![Wheel Action Status][actions-wheels-badge]][actions-wheels-link]
+[![PyPi][pypi-badge]][pypi-link]
+
+
+[actions-pip-link]:        https://github.com/oberbichler/protosaurus/actions?query=workflow%3APip
+[actions-pip-badge]:       https://github.com/oberbichler/protosaurus/workflows/Pip/badge.svg
+[actions-wheels-link]:     https://github.com/oberbichler/protosaurus/actions?query=workflow%3AWheels
+[actions-wheels-badge]:    https://github.com/oberbichler/protosaurus/workflows/Wheels/badge.svg
+[pypi-link]:               https://pypi.org/project/protosaurus/
+[pypi-badge]:              https://img.shields.io/pypi/v/protosaurus
+
 ## Installation
 
 ```bash
