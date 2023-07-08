@@ -39,7 +39,7 @@ private:
 public:
   void add_proto(const std::string& name, const std::string& content) {
     ArrayInputStream raw_input(content.c_str(), strlen(content.c_str()));
-    Tokenizer input(&raw_input, NULL);
+    Tokenizer input(&raw_input, nullptr);
 
     FileDescriptorProto file_descriptor_proto;
     Parser parser;
@@ -54,7 +54,7 @@ public:
 
     const FileDescriptor* file_desc = m_pool.BuildFile(file_descriptor_proto);
 
-    if (file_desc == NULL) {
+    if (file_desc == nullptr) {
       throw new std::runtime_error("Could not get a file descriptor from .proto");
     }
   }
