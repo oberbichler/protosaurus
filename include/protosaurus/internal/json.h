@@ -116,7 +116,7 @@ namespace protosaurus::internal {
       const FieldDescriptor* field = *field_it;
 
       if (field == nullptr) {
-        throw new std::runtime_error("Error fieldDescriptor object is not defined");
+        throw std::runtime_error("Error fieldDescriptor object is not defined");
         continue;
       }
 

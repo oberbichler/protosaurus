@@ -39,13 +39,13 @@ private:
 public:
   void add_proto(const std::string& name, const std::string& content) {
     ArrayInputStream raw_input(content.c_str(), strlen(content.c_str()));
-    Tokenizer input(&raw_input, NULL);
+    Tokenizer input(&raw_input, nullptr);
 
     FileDescriptorProto file_descriptor_proto;
     Parser parser;
 
     if (!parser.Parse(&input, &file_descriptor_proto)) {
-      throw new std::runtime_error("Could not parse proto");
+      throw std::runtime_error("Could not parse proto");
     }
 
     if (!file_descriptor_proto.has_name()) {
@@ -54,8 +54,8 @@ public:
 
     const FileDescriptor* file_desc = m_pool.BuildFile(file_descriptor_proto);
 
-    if (file_desc == NULL) {
-      throw new std::runtime_error("Could not get a file descriptor from .proto");
+    if (file_desc == nullptr) {
+      throw std::runtime_error("Could not get a file descriptor from .proto");
     }
   }
 
