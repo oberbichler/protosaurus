@@ -23,7 +23,7 @@ def test_bool(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CAE=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CAE=')))
 
     assert actual['data']
 
@@ -36,7 +36,7 @@ def test_bool_repeated(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CgMBAAE=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CgMBAAE=')))
 
     assert actual['data'] == [True, False, True]
 
@@ -50,7 +50,7 @@ def test_int32(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CAc=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CAc=')))
 
     assert actual['data'] == 7
 
@@ -63,7 +63,7 @@ def test_int32_repeated(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CgMHCAk=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CgMHCAk=')))
 
     assert actual['data'] == [7, 8, 9]
 
@@ -77,7 +77,7 @@ def test_uint32(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CAc=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CAc=')))
 
     assert actual['data'] == 7
 
@@ -90,7 +90,7 @@ def test_uint32_repeated(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CgMHCAk=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CgMHCAk=')))
 
     assert actual['data'] == [7, 8, 9]
 
@@ -104,11 +104,11 @@ def test_int64(ctx):
         }
         """)
 
-    actual = json.loads(ctx.as_json('test', b64decode('CAc=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CAc=')))
 
     assert actual['data'] == 7
 
-def test_int64(ctx):
+def test_int64_repeated(ctx):
     ctx.add_proto('test',
         """
         syntax = "proto3";
@@ -117,7 +117,7 @@ def test_int64(ctx):
         }
         """)
 
-    actual = json.loads(ctx.as_json('test', b64decode('CgMHCAk=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CgMHCAk=')))
 
     assert actual['data'] == [7, 8, 9]
 
@@ -131,11 +131,11 @@ def test_uint64(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CAc=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CAc=')))
 
     assert actual['data'] == 7
 
-def test_uint64(ctx):
+def test_uint64_repeated(ctx):
     ctx.add_proto('test',
         """
         syntax = "proto3";
@@ -144,7 +144,7 @@ def test_uint64(ctx):
         }
         """)
 
-    actual = json.loads(ctx.as_json('test', b64decode('CgMHCAk=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CgMHCAk=')))
 
     assert actual['data'] == [7, 8, 9]
 
@@ -158,7 +158,7 @@ def test_float(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('DZqZ+UA=')))
+    actual = json.loads(ctx.to_json('test', b64decode('DZqZ+UA=')))
 
     assert actual['data'] == 7.8
 
@@ -171,7 +171,7 @@ def test_float_repeated(ctx):
         }
         """)
 
-    actual = json.loads(ctx.as_json('test', b64decode('CgyamflAZmYOQQAAEEE=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CgyamflAZmYOQQAAEEE=')))
 
     assert actual['data'] == [7.8, 8.9, 9.0]
 
@@ -185,7 +185,7 @@ def test_double(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('DZqZ+UA=')))
+    actual = json.loads(ctx.to_json('test', b64decode('DZqZ+UA=')))
 
     assert actual['data'] == 7.8
 
@@ -198,7 +198,7 @@ def test_double_repeated(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('ChgzMzMzMzMfQM3MzMzMzCFAAAAAAAAAIkA=')))
+    actual = json.loads(ctx.to_json('test', b64decode('ChgzMzMzMzMfQM3MzMzMzCFAAAAAAAAAIkA=')))
 
     assert actual['data'] == [7.8, 8.9, 9.0]
 
@@ -212,7 +212,7 @@ def test_string(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CgV2YWx1ZQ==')))
+    actual = json.loads(ctx.to_json('test', b64decode('CgV2YWx1ZQ==')))
 
     assert actual['data'] == 'value'
 
@@ -225,7 +225,7 @@ def test_string_repeated(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CgFBCgFCCgFD')))
+    actual = json.loads(ctx.to_json('test', b64decode('CgFBCgFCCgFD')))
 
     assert actual['data'] == ['A', 'B', 'C']
 
@@ -244,7 +244,7 @@ def test_enum(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CAE=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CAE=')))
 
     assert actual['data'] == "B"
 
@@ -262,7 +262,7 @@ def test_enum_repeated(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CgMBAAI=')))
+    actual = json.loads(ctx.to_json('test', b64decode('CgMBAAI=')))
 
     assert actual['data'] == ['B', 'A', 'C']
 
@@ -279,7 +279,7 @@ def test_message(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CgIIBw==')))
+    actual = json.loads(ctx.to_json('test', b64decode('CgIIBw==')))
 
     assert actual['data']['data'] == 7
 
@@ -295,7 +295,7 @@ def test_message_repeated(ctx):
         }
         """)
     
-    actual = json.loads(ctx.as_json('test', b64decode('CgIIBwoCCAgKAggJ')))
+    actual = json.loads(ctx.to_json('test', b64decode('CgIIBwoCCAgKAggJ')))
 
     assert len(actual['data']) == 3
     assert actual['data'][0]['data'] == 7

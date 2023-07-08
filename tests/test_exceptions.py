@@ -33,7 +33,7 @@ def test_invalid_message_type(ctx):
         }
         """)
 
-        ctx.as_json('invalid type', b64decode('CAE='))
+        ctx.to_json('invalid type', b64decode('CAE='))
 
 def test_invalid_data(ctx):
     with pytest.raises(RuntimeError):
@@ -45,4 +45,4 @@ def test_invalid_data(ctx):
         }
         """)
 
-        ctx.as_json('test', b'invalid data')
+        ctx.to_json('test', b'invalid data')
