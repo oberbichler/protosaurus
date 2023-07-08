@@ -39,7 +39,7 @@ ctx.add_proto('diet.proto',
     }
     """)
 
-# the specified names can be used for imports (like filenames)
+# the proto can be imported via the specified name
 ctx.add_proto('dino.proto',
     """
     syntax = "proto3";
