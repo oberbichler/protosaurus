@@ -14,220 +14,43 @@ def ctx():
     return Context()
 
 
-def test_bool(ctx):
+@pytest.fixture(params=[
+    # type, data, expected
+    ('bool', 'CAE=', True),
+    ('int32', 'CAc=', 7),
+    ('int64', 'CAc=', 7),
+    ('uint32', 'CAc=', 7),
+    ('uint64', 'CAc=', 7),
+    ('float', 'DZqZ+UA=', 7.8),
+    ('double', 'CTMzMzMzMx9A', 7.8),
+    ('string', 'CgV2YWx1ZQ==', 'value'),
+    ('repeated bool', 'CgMBAAE=', [True, False, True]),
+    ('repeated int32', 'CgMHCAk=', [7, 8, 9]),
+    ('repeated int64', 'CgMHCAk=', [7, 8, 9]),
+    ('repeated uint32', 'CgMHCAk=', [7, 8, 9]),
+    ('repeated uint64', 'CgMHCAk=', [7, 8, 9]),
+    ('repeated float', 'CgyamflAZmYOQQAAEEE=', [7.8, 8.9, 9.0]),
+    ('repeated double', 'ChgzMzMzMzMfQM3MzMzMzCFAAAAAAAAAIkA=', [7.8, 8.9, 9.0]),
+    ('repeated string', 'CgFBCgFCCgFD', ['A', 'B', 'C']),
+    ], ids=lambda d: d[0])
+def simple_values(request):
+    return request.param
+
+
+def test_simple_values(ctx, simple_values):
+    field_type, data, expected = simple_values
+
     ctx.add_proto('test',
-        """
+        f"""
         syntax = "proto3";
-        message test {
-            bool data = 1;
-        }
+        message test {{
+            {field_type} data = 1;
+        }}
         """)
     
-    actual = json.loads(ctx.to_json('test', b64decode('CAE=')))
+    actual = json.loads(ctx.to_json('test', b64decode(data)))
 
-    assert actual['data']
-
-def test_bool_repeated(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            repeated bool data = 1;
-        }
-        """)
-    
-    actual = json.loads(ctx.to_json('test', b64decode('CgMBAAE=')))
-
-    assert actual['data'] == [True, False, True]
-
-
-def test_int32(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            int32 data = 1;
-        }
-        """)
-    
-    actual = json.loads(ctx.to_json('test', b64decode('CAc=')))
-
-    assert actual['data'] == 7
-
-def test_int32_repeated(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            repeated int32 data = 1;
-        }
-        """)
-    
-    actual = json.loads(ctx.to_json('test', b64decode('CgMHCAk=')))
-
-    assert actual['data'] == [7, 8, 9]
-
-
-def test_uint32(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            uint32 data = 1;
-        }
-        """)
-    
-    actual = json.loads(ctx.to_json('test', b64decode('CAc=')))
-
-    assert actual['data'] == 7
-
-def test_uint32_repeated(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            repeated uint32 data = 1;
-        }
-        """)
-    
-    actual = json.loads(ctx.to_json('test', b64decode('CgMHCAk=')))
-
-    assert actual['data'] == [7, 8, 9]
-
-
-def test_int64(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            int64 data = 1;
-        }
-        """)
-
-    actual = json.loads(ctx.to_json('test', b64decode('CAc=')))
-
-    assert actual['data'] == 7
-
-def test_int64_repeated(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            repeated int64 data = 1;
-        }
-        """)
-
-    actual = json.loads(ctx.to_json('test', b64decode('CgMHCAk=')))
-
-    assert actual['data'] == [7, 8, 9]
-
-
-def test_uint64(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            uint64 data = 1;
-        }
-        """)
-    
-    actual = json.loads(ctx.to_json('test', b64decode('CAc=')))
-
-    assert actual['data'] == 7
-
-def test_uint64_repeated(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            repeated uint64 data = 1;
-        }
-        """)
-
-    actual = json.loads(ctx.to_json('test', b64decode('CgMHCAk=')))
-
-    assert actual['data'] == [7, 8, 9]
-
-
-def test_float(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            float data = 1;
-        }
-        """)
-    
-    actual = json.loads(ctx.to_json('test', b64decode('DZqZ+UA=')))
-
-    assert actual['data'] == 7.8
-
-def test_float_repeated(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            repeated float data = 1;
-        }
-        """)
-
-    actual = json.loads(ctx.to_json('test', b64decode('CgyamflAZmYOQQAAEEE=')))
-
-    assert actual['data'] == [7.8, 8.9, 9.0]
-
-
-def test_double(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            float data = 1;
-        }
-        """)
-    
-    actual = json.loads(ctx.to_json('test', b64decode('DZqZ+UA=')))
-
-    assert actual['data'] == 7.8
-
-def test_double_repeated(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            repeated double data = 1;
-        }
-        """)
-    
-    actual = json.loads(ctx.to_json('test', b64decode('ChgzMzMzMzMfQM3MzMzMzCFAAAAAAAAAIkA=')))
-
-    assert actual['data'] == [7.8, 8.9, 9.0]
-
-
-def test_string(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            string data = 1;
-        }
-        """)
-    
-    actual = json.loads(ctx.to_json('test', b64decode('CgV2YWx1ZQ==')))
-
-    assert actual['data'] == 'value'
-
-def test_string_repeated(ctx):
-    ctx.add_proto('test',
-        """
-        syntax = "proto3";
-        message test {
-            repeated string data = 1;
-        }
-        """)
-    
-    actual = json.loads(ctx.to_json('test', b64decode('CgFBCgFCCgFD')))
-
-    assert actual['data'] == ['A', 'B', 'C']
+    assert actual['data'] == expected
 
 
 def test_enum(ctx):
