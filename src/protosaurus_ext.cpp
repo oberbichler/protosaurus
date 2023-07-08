@@ -9,5 +9,5 @@ NB_MODULE(protosaurus_ext, m) {
   nb::class_<Context>(m, "Context")
     .def(nb::init<>())
     .def("add_proto", &Context::add_proto, "name"_a, "content"_a)
-    .def("as_json", &Context::as_json, "message_type"_a, "data"_a);
+    .def("to_json", &Context::to_json, "message_type"_a, "data"_a);
 }

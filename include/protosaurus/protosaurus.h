@@ -59,7 +59,7 @@ public:
     }
   }
 
-  std::string as_json(std::string message_type, nb::bytes data) {
+  std::string to_json(std::string message_type, nb::bytes data) {
     // get descriptor
 
     const Descriptor* descriptor = m_pool.FindMessageTypeByName(message_type);
