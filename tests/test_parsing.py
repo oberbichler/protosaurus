@@ -301,3 +301,31 @@ def test_message_repeated(ctx):
     assert actual['data'][0]['data'] == 7
     assert actual['data'][1]['data'] == 8
     assert actual['data'][2]['data'] == 9
+
+
+def test_import(ctx):
+    ctx.add_proto('diet.proto',
+        """
+        syntax = "proto3";
+        enum Diet {
+            carnivorous = 0;
+            herbivorous = 1;
+        }
+        """)
+    
+    ctx.add_proto('dino.proto',
+        """
+        syntax = "proto3";
+        import "diet.proto";
+        message Dino {
+            string name = 1;
+            Diet diet = 2;
+            double length = 3;
+        }
+        """)
+    
+    actual = json.loads(ctx.to_json('Dino', b64decode('CglJZ3Vhbm9kb24QARkAAAAAAAAkQA==')))
+
+    assert actual['name'] == 'Iguanodon'
+    assert actual['diet'] == 'herbivorous'
+    assert actual['length'] == 10
