@@ -14,7 +14,7 @@ def ctx():
 
 
 def test_invalid_proto(ctx):
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match='Could not parse proto'):
         ctx.add_proto('test',
         """
         syntax = "proto3";
@@ -24,7 +24,7 @@ def test_invalid_proto(ctx):
         """)
 
 def test_invalid_message_type(ctx):
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match='Could not find descriptor for message type "invalid type"'):
         ctx.add_proto('test',
         """
         syntax = "proto3";
@@ -36,7 +36,7 @@ def test_invalid_message_type(ctx):
         ctx.to_json('invalid type', b64decode('CAE='))
 
 def test_invalid_data(ctx):
-    with pytest.raises(RuntimeError):
+    with pytest.raises(RuntimeError, match='Could not parse value in buffer'):
         ctx.add_proto('test',
         """
         syntax = "proto3";
