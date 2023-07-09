@@ -5,7 +5,7 @@ from base64 import b64decode
 from deepdiff import DeepDiff
 
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     pytest.main()
 
 
@@ -168,3 +168,23 @@ def test_map(ctx):
         {'key': 'C', 'value': 3},
     ]})
 
+
+def test_oneof(ctx):
+    ctx.add_proto('test',
+        """
+        syntax = "proto3";
+        message test {
+            oneof data {
+                string text = 1;
+                int32 number = 2;
+            }
+        }
+        """)
+    
+    actual_json = ctx.to_json('test', b64decode('EAc='))
+
+    assert_json_equals(actual_json, {'number': 7})
+    
+    actual_json = ctx.to_json('test', b64decode('CgVzZXZlbg=='))
+
+    assert_json_equals(actual_json, {'text': 'seven'})
