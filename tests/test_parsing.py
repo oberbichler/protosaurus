@@ -2,11 +2,17 @@ import json
 import pytest
 
 from base64 import b64decode
+from deepdiff import DeepDiff
 
 
 if __name__ == "__main__":
     pytest.main()
 
+
+def assert_json_equals(actual_json, expected):
+    __tracebackhide__ = True
+    actual = json.loads(actual_json)
+    assert DeepDiff(actual, expected) == {}
 
 
 @pytest.fixture(params=[
@@ -43,9 +49,9 @@ def test_simple_values(ctx, simple_values):
         }}
         """)
     
-    actual = json.loads(ctx.to_json('test', b64decode(data)))
+    actual_json = ctx.to_json('test', b64decode(data))
 
-    assert actual['data'] == expected
+    assert_json_equals(actual_json, {'data': expected})
 
 
 def test_enum(ctx):
@@ -62,9 +68,9 @@ def test_enum(ctx):
         }
         """)
     
-    actual = json.loads(ctx.to_json('test', b64decode('CAE=')))
+    actual_json = ctx.to_json('test', b64decode('CAE='))
 
-    assert actual['data'] == "B"
+    assert_json_equals(actual_json, {'data': 'B'})
 
 def test_enum_repeated(ctx):
     ctx.add_proto('test',
@@ -80,9 +86,9 @@ def test_enum_repeated(ctx):
         }
         """)
     
-    actual = json.loads(ctx.to_json('test', b64decode('CgMBAAI=')))
+    actual_json = ctx.to_json('test', b64decode('CgMBAAI='))
 
-    assert actual['data'] == ['B', 'A', 'C']
+    assert_json_equals(actual_json, {'data': ['B', 'A', 'C']})
 
 
 def test_message(ctx):
@@ -97,9 +103,9 @@ def test_message(ctx):
         }
         """)
     
-    actual = json.loads(ctx.to_json('test', b64decode('CgIIBw==')))
+    actual_json = ctx.to_json('test', b64decode('CgIIBw=='))
 
-    assert actual['data']['data'] == 7
+    assert_json_equals(actual_json, {'data': {'data': 7}})
 
 def test_message_repeated(ctx):
     ctx.add_proto('test',
@@ -113,12 +119,9 @@ def test_message_repeated(ctx):
         }
         """)
     
-    actual = json.loads(ctx.to_json('test', b64decode('CgIIBwoCCAgKAggJ')))
+    actual_json = ctx.to_json('test', b64decode('CgIIBwoCCAgKAggJ'))
 
-    assert len(actual['data']) == 3
-    assert actual['data'][0]['data'] == 7
-    assert actual['data'][1]['data'] == 8
-    assert actual['data'][2]['data'] == 9
+    assert_json_equals(actual_json, {'data': [{'data': 7}, {'data': 8}, {'data': 9}]})
 
 
 def test_import(ctx):
@@ -131,19 +134,17 @@ def test_import(ctx):
         }
         """)
     
-    ctx.add_proto('dino.proto',
+    ctx.add_proto('animal.proto',
         """
         syntax = "proto3";
         import "diet.proto";
-        message Dino {
+        message Animal {
             string name = 1;
             Diet diet = 2;
             double length = 3;
         }
         """)
     
-    actual = json.loads(ctx.to_json('Dino', b64decode('CglJZ3Vhbm9kb24QARkAAAAAAAAkQA==')))
+    actual_json = ctx.to_json('Animal', b64decode('CglJZ3Vhbm9kb24QARkAAAAAAAAkQA=='))
 
-    assert actual['name'] == 'Iguanodon'
-    assert actual['diet'] == 'herbivorous'
-    assert actual['length'] == 10
+    assert_json_equals(actual_json, {'name': 'Iguanodon', 'diet': 'herbivorous', 'length': 10})

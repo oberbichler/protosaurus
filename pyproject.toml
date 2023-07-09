@@ -26,8 +26,7 @@ wheel.py-api = "cp312"
 [tool.cibuildwheel]
 build-verbosity = 1
 test-command = "pytest {project}/tests"
-test-requires = "pytest"
+test-requires = ["pytest", "deepdiff"]
 
 [tool.cibuildwheel.macos.environment]
 MACOSX_DEPLOYMENT_TARGET = "10.14"
-
