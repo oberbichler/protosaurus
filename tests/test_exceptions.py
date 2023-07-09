@@ -1,16 +1,10 @@
 import pytest
 
-from protosaurus import Context
 from base64 import b64decode
 
 
 if __name__ == "__main__":
     pytest.main()
-
-
-@pytest.fixture
-def ctx():
-    return Context()
 
 
 def test_invalid_proto(ctx):

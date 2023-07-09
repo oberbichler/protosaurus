@@ -40,11 +40,11 @@ ctx.add_proto('diet.proto',
     """)
 
 # the proto can be imported via the specified name
-ctx.add_proto('dino.proto',
+ctx.add_proto('animal.proto',
     """
     syntax = "proto3";
     import "diet.proto";
-    message Dino {
+    message Animal {
         string name = 1;
         Diet diet = 2;
         double length = 3;
@@ -52,10 +52,10 @@ ctx.add_proto('dino.proto',
     """)
 
 # convert a message from base64 string...
-data = ctx.to_json('Dino', b64decode('CglJZ3Vhbm9kb24QARkAAAAAAAAkQA=='))
+data = ctx.to_json('Animal', b64decode('CglJZ3Vhbm9kb24QARkAAAAAAAAkQA=='))
 
 # ...or hex string
-data = ctx.to_json('Dino', bytes.fromhex('0a09496775616e6f646f6e1001190000000000002440'))
+data = ctx.to_json('Animal', bytes.fromhex('0a09496775616e6f646f6e1001190000000000002440'))
 
 print(data)
 # >>> {"name":"Iguanodon","diet":"herbivorous","length":10}
