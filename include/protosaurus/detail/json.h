@@ -14,9 +14,13 @@ using namespace google::protobuf::compiler;
 namespace protosaurus::detail {
 
   struct enumeration {};
+  void push_msg(std::ostream& out, const Message& message);
 
   template <typename T>
   void push_val(std::ostream& out, const Message& message, const Reflection& reflection, const FieldDescriptor& field) {
+    if constexpr(std::is_same<T, Message>::value) {
+      push_msg(out, reflection.GetMessage(message, &field));
+    }
     if constexpr(std::is_same<T, bool>::value) {
       out << reflection.GetBool(message, &field);
     }
@@ -48,6 +52,9 @@ namespace protosaurus::detail {
 
   template <typename T>
   void push_ith(std::ostream& out, const Message& message, const Reflection& reflection, const FieldDescriptor& field, const int i) {
+      if constexpr(std::is_same<T, Message>::value) {
+        push_msg(out, reflection.GetRepeatedMessage(message, &field, i));
+      }
       if constexpr(std::is_same<T, bool>::value) {
           out << reflection.GetRepeatedBool(message, &field, i);
       }
@@ -147,22 +154,7 @@ namespace protosaurus::detail {
         break;
       case FieldDescriptor::Type::TYPE_MESSAGE:
       case FieldDescriptor::Type::TYPE_GROUP:
-        // FIXME: Unify
-        if (field->is_repeated()) {
-          out << "[";
-
-          for (size_t i = 0; i < reflection->FieldSize(message, field); i++) {
-            if (i != 0) {
-              out << ",";
-            }
-
-            push_msg(out, reflection->GetRepeatedMessage(message, field, i));
-          }
-
-          out << "]";
-        } else {
-          push_msg(out, reflection->GetMessage(message, field));
-        }
+        push<Message>(out, message, *reflection, *field);
         break;
       case FieldDescriptor::Type::TYPE_STRING:
       case FieldDescriptor::Type::TYPE_BYTES:
