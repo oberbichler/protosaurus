@@ -15,6 +15,12 @@ classifiers = [
     "License :: OSI Approved :: ISC License (ISCL)",
 ]
 
+[project.optional-dependencies]
+test = [
+  "pytest >=6.0",
+  "deepdiff",
+]
+
 [project.urls]
 Homepage = "https://github.com/oberbichler/protosaurus"
 
