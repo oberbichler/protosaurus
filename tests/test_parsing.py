@@ -148,3 +148,23 @@ def test_import(ctx):
     actual_json = ctx.to_json('Animal', b64decode('CglJZ3Vhbm9kb24QARkAAAAAAAAkQA=='))
 
     assert_json_equals(actual_json, {'name': 'Iguanodon', 'diet': 'herbivorous', 'length': 10})
+
+
+def test_map(ctx):
+    ctx.add_proto('test',
+        """
+        syntax = "proto3";
+        message test {
+            map<string, int32> data = 1;
+        }
+        """)
+    
+    actual_json = ctx.to_json('test', b64decode('CgUKAUEQAQoFCgFCEAIKBQoBQxAD'))
+
+    # FIXME: better representation
+    assert_json_equals(actual_json, {'data': [
+        {'key': 'A', 'value': 1},
+        {'key': 'B', 'value': 2},
+        {'key': 'C', 'value': 3},
+    ]})
+
