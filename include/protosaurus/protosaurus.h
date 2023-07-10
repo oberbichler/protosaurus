@@ -1,7 +1,5 @@
 #pragma once
 
-#include "detail/json.h"
-
 #include <protosaurus/protosaurus.h>
 
 #include <nanobind/nanobind.h>
@@ -13,6 +11,7 @@
 #include <google/protobuf/io/tokenizer.h>             // Tokenizer
 #include <google/protobuf/io/zero_copy_stream_impl.h> // ArrayInputStream
 #include <google/protobuf/message.h>                  // Message
+#include <google/protobuf/util/json_util.h>           // MessageToJsonString, 
 
 #include <ios>                                        // boolalpha
 #include <iosfwd>                                     // ostream
@@ -92,13 +91,49 @@ public:
 
     // write json
 
-    std::stringstream out;
+    std::string out;
 
-    out << std::boolalpha;
+    absl::Status status = util::MessageToJsonString(*message, &out);
 
-    detail::push_msg(out, *message);
+    return out;
+  }
 
-    return out.str();
+  nb::bytes from_json(std::string message_type, std::string data) {
+    // get descriptor
+
+    const Descriptor* descriptor = m_pool.FindMessageTypeByName(message_type);
+
+    if (descriptor == nullptr) {
+      throw std::runtime_error("Could not find descriptor for message type \"" + message_type + "\"");
+    }
+
+    // generate prototype message
+  
+    DynamicMessageFactory factory;
+
+    const Message* prototype = factory.GetPrototype(descriptor);
+
+    if (prototype == nullptr) {
+      throw std::runtime_error("Could not create prototype");
+    }
+
+    // parse data
+  
+    std::unique_ptr<Message> message(prototype->New());
+
+    if (message == nullptr) {
+      throw std::runtime_error("Could not create empty message from prototype");
+    }
+
+    // write json
+
+    std::string out;
+
+    absl::Status status = util::JsonStringToMessage(data, message.get());
+
+    message->SerializeToString(&out);
+
+    return nb::bytes(out.c_str(), out.size());
   }
 };
 
