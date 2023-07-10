@@ -23,6 +23,7 @@ pip install protosaurus
 ## Usage
 
 ```python
+import json
 from protosaurus import Context
 from base64 import b64decode
 
