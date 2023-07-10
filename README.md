@@ -1,6 +1,6 @@
 # Protosaurus
 
-Parse ProtoBuffer messages at runtime.
+Parse and create ProtoBuffer messages at runtime.
 
 [![Pip Action Status][actions-pip-badge]][actions-pip-link]
 [![Wheel Action Status][actions-wheels-badge]][actions-wheels-link]
@@ -58,5 +58,12 @@ data = ctx.to_json('Animal', b64decode('CglJZ3Vhbm9kb24QARkAAAAAAAAkQA=='))
 data = ctx.to_json('Animal', bytes.fromhex('0a09496775616e6f646f6e1001190000000000002440'))
 
 print(data)
-# >>> {"name":"Iguanodon","diet":"herbivorous","length":10}
+# >>> '{"name":"Iguanodon","diet":"herbivorous","length":10}'
+
+
+# convert json to protobuf
+data = ctx.from_json('Animal', json.dumps({"name":"Iguanodon","diet":"herbivorous","length":10}))
+
+print(data)
+# >>> b'\n\tIguanodon\x10\x01\x19\x00\x00\x00\x00\x00\x00$@'
 ```
