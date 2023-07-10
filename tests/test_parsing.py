@@ -73,74 +73,100 @@ def test_from_json_simple_values(ctx, simple_values):
     assert_msg_equals(actual_msg, expected_message)
 
 
-def test_enum(ctx):
+@pytest.fixture(params=[
+    # field_type, message, expected_data
+    ('options', 'CAE=', 'B'),
+    ('repeated options', 'CgMBAAI=', ['B', 'A', 'C']),
+    ], ids=lambda d: d[0])
+def enums(request):
+    return request.param
+
+
+def test_to_json_enum(ctx, enums):
+    field_type, message, expected_data = enums
+
     ctx.add_proto('test',
-        """
+        f"""
         syntax = "proto3";
-        enum options {
+        enum options {{
             A = 0;
             B = 1;
             C = 2;
-        }
-        message test {
-            options data = 1;
-        }
+        }}
+        message test {{
+            {field_type} data = 1;
+        }}
         """)
     
-    actual_json = ctx.to_json('test', b64decode('CAE='))
+    actual_json = ctx.to_json('test', b64decode(message))
 
-    assert_json_equals(actual_json, {'data': 'B'})
+    assert_json_equals(actual_json, {'data': expected_data})
 
-def test_enum_repeated(ctx):
+def test_from_json_enum(ctx, enums):
+    field_type, expected_message, data = enums
+
     ctx.add_proto('test',
-        """
+        f"""
         syntax = "proto3";
-        enum options {
+        enum options {{
             A = 0;
             B = 1;
             C = 2;
-        }
-        message test {
-            repeated options data = 1;
-        }
+        }}
+        message test {{
+            {field_type} data = 1;
+        }}
         """)
     
-    actual_json = ctx.to_json('test', b64decode('CgMBAAI='))
+    actual_msg = ctx.from_json('test', json.dumps({'data': data}))
 
-    assert_json_equals(actual_json, {'data': ['B', 'A', 'C']})
+    assert_msg_equals(actual_msg, expected_message)
 
 
-def test_message(ctx):
+@pytest.fixture(params=[
+    # field_type, message, expected_data
+    ('nested', 'CgIIBw==', {'data': 7}),
+    ('repeated nested', 'CgIIBwoCCAgKAggJ', [{'data': 7}, {'data': 8}, {'data': 9}]),
+    ], ids=lambda d: d[0])
+def messages(request):
+    return request.param
+
+
+def test_to_json_messages(ctx, messages):
+    field_type, message, expected_data = messages
+
     ctx.add_proto('test',
-        """
+        f"""
         syntax = "proto3";
-        message nested {
+        message nested {{
             int32 data = 1;
-        }
-        message test {
-            nested data = 1;
-        }
+        }}
+        message test {{
+            {field_type} data = 1;
+        }}
         """)
     
-    actual_json = ctx.to_json('test', b64decode('CgIIBw=='))
+    actual_json = ctx.to_json('test', b64decode(message))
 
-    assert_json_equals(actual_json, {'data': {'data': 7}})
+    assert_json_equals(actual_json, {'data': expected_data})
 
-def test_message_repeated(ctx):
+def test_from_json_messages(ctx, messages):
+    field_type, expected_message, data = messages
+
     ctx.add_proto('test',
-        """
+        f"""
         syntax = "proto3";
-        message nested {
+        message nested {{
             int32 data = 1;
-        }
-        message test {
-            repeated nested data = 1;
-        }
+        }}
+        message test {{
+            {field_type} data = 1;
+        }}
         """)
     
-    actual_json = ctx.to_json('test', b64decode('CgIIBwoCCAgKAggJ'))
+    actual_msg = ctx.from_json('test', json.dumps({'data': data}))
 
-    assert_json_equals(actual_json, {'data': [{'data': 7}, {'data': 8}, {'data': 9}]})
+    assert_msg_equals(actual_msg, expected_message)
 
 
 def test_import(ctx):
