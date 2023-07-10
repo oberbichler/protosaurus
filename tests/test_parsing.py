@@ -14,22 +14,26 @@ def assert_json_equals(actual_json, expected):
     actual = json.loads(actual_json)
     assert DeepDiff(actual, expected) == {}
 
+def assert_msg_equals(actual_msg, expected):
+    __tracebackhide__ = True
+    assert actual_msg == b64decode(expected)
+
 
 @pytest.fixture(params=[
-    # type, data, expected
+    # field_type, message, expected_data
     ('bool', 'CAE=', True),
     ('int32', 'CAc=', 7),
-    ('int64', 'CAc=', 7),
+    ('int64', 'CAc=', '7'),
     ('uint32', 'CAc=', 7),
-    ('uint64', 'CAc=', 7),
+    ('uint64', 'CAc=', '7'),
     ('float', 'DZqZ+UA=', 7.8),
     ('double', 'CTMzMzMzMx9A', 7.8),
     ('string', 'CgV2YWx1ZQ==', 'value'),
     ('repeated bool', 'CgMBAAE=', [True, False, True]),
     ('repeated int32', 'CgMHCAk=', [7, 8, 9]),
-    ('repeated int64', 'CgMHCAk=', [7, 8, 9]),
+    ('repeated int64', 'CgMHCAk=', ['7', '8', '9']),
     ('repeated uint32', 'CgMHCAk=', [7, 8, 9]),
-    ('repeated uint64', 'CgMHCAk=', [7, 8, 9]),
+    ('repeated uint64', 'CgMHCAk=', ['7', '8', '9']),
     ('repeated float', 'CgyamflAZmYOQQAAEEE=', [7.8, 8.9, 9.0]),
     ('repeated double', 'ChgzMzMzMzMfQM3MzMzMzCFAAAAAAAAAIkA=', [7.8, 8.9, 9.0]),
     ('repeated string', 'CgFBCgFCCgFD', ['A', 'B', 'C']),
@@ -38,8 +42,8 @@ def simple_values(request):
     return request.param
 
 
-def test_simple_values(ctx, simple_values):
-    field_type, data, expected = simple_values
+def test_to_json_simple_values(ctx, simple_values):
+    field_type, message, expected_data = simple_values
 
     ctx.add_proto('test',
         f"""
@@ -49,9 +53,24 @@ def test_simple_values(ctx, simple_values):
         }}
         """)
     
-    actual_json = ctx.to_json('test', b64decode(data))
+    actual_json = ctx.to_json('test', b64decode(message))
 
-    assert_json_equals(actual_json, {'data': expected})
+    assert_json_equals(actual_json, {'data': expected_data})
+
+def test_from_json_simple_values(ctx, simple_values):
+    field_type, expected_message, data = simple_values
+
+    ctx.add_proto('test',
+        f"""
+        syntax = "proto3";
+        message test {{
+            {field_type} data = 1;
+        }}
+        """)
+    
+    actual_msg = ctx.from_json('test', json.dumps({'data': data}))
+
+    assert_msg_equals(actual_msg, expected_message)
 
 
 def test_enum(ctx):
@@ -161,12 +180,7 @@ def test_map(ctx):
     
     actual_json = ctx.to_json('test', b64decode('CgUKAUEQAQoFCgFCEAIKBQoBQxAD'))
 
-    # FIXME: better representation
-    assert_json_equals(actual_json, {'data': [
-        {'key': 'A', 'value': 1},
-        {'key': 'B', 'value': 2},
-        {'key': 'C', 'value': 3},
-    ]})
+    assert_json_equals(actual_json, {'data': {'A': 1, 'B': 2, 'C': 3}})
 
 
 def test_oneof(ctx):
