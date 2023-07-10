@@ -11,7 +11,7 @@
 #include <google/protobuf/io/tokenizer.h>             // Tokenizer
 #include <google/protobuf/io/zero_copy_stream_impl.h> // ArrayInputStream
 #include <google/protobuf/message.h>                  // Message
-#include <google/protobuf/util/json_util.h>           // MessageToJsonString, 
+#include <google/protobuf/util/json_util.h>           // MessageToJsonString, JsonStringToMessage
 
 #include <ios>                                        // boolalpha
 #include <iosfwd>                                     // ostream
