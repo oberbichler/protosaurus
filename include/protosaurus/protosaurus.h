@@ -125,7 +125,7 @@ public:
       throw std::runtime_error("Could not create empty message from prototype");
     }
 
-    // write json
+    // parse json
 
     std::string out;
 
