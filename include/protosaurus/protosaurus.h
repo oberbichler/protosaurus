@@ -13,9 +13,6 @@
 #include <google/protobuf/message.h>                  // Message
 #include <google/protobuf/util/json_util.h>           // MessageToJsonString, JsonStringToMessage
 
-#include <ios>                                        // boolalpha
-#include <iosfwd>                                     // ostream
-#include <sstream>                                    // stringstream
 #include <stdexcept>                                  // runtime_error
 #include <string>                                     // string
 #include <memory>                                     // unique_ptr
