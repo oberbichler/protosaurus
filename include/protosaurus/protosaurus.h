@@ -92,6 +92,10 @@ public:
 
     absl::Status status = util::MessageToJsonString(*message, &out);
 
+    if (!status.ok()) {
+      throw std::runtime_error("Could not convert message to json");
+    }
+    
     return out;
   }
 
@@ -127,6 +131,10 @@ public:
     std::string out;
 
     absl::Status status = util::JsonStringToMessage(data, message.get());
+
+    if (!status.ok()) {
+      throw std::runtime_error("Could not convert json to message");
+    }
 
     message->SerializeToString(&out);
 
