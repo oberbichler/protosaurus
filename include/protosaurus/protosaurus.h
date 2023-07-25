@@ -33,7 +33,7 @@ private:
   google::protobuf::DescriptorPool m_pool;
 
 public:
-  void add_proto(const std::string& name, const std::string& content) {
+  void add_proto(const std::string& filename, const std::string& content) {
     ArrayInputStream raw_input(content.c_str(), strlen(content.c_str()));
     Tokenizer input(&raw_input, nullptr);
 
@@ -45,7 +45,7 @@ public:
     }
 
     if (!file_descriptor_proto.has_name()) {
-      file_descriptor_proto.set_name(name);
+      file_descriptor_proto.set_name(filename);
     }
 
     const FileDescriptor* file_desc = m_pool.BuildFile(file_descriptor_proto);
