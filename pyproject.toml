@@ -9,10 +9,14 @@ description = "Protocol Buffers at runtime"
 readme = "README.md"
 requires-python = ">=3.8"
 authors = [
-    { name = "Thomas Oberbichler", email = "thomas.oberbichler@gmail.com" },
+  { name = "Thomas Oberbichler", email = "thomas.oberbichler@gmail.com" },
 ]
 classifiers = [
-    "License :: OSI Approved :: ISC License (ISCL)",
+  "License :: OSI Approved :: ISC License (ISCL)",
+]
+dependencies = [
+    "click >= 8.1",
+    "requests >= 2.31",
 ]
 
 [project.optional-dependencies]
@@ -20,6 +24,9 @@ test = [
   "pytest >=6.0",
   "deepdiff",
 ]
+
+[project.scripts]
+protosaurus = "protosaurus.cli:main"
 
 [project.urls]
 Homepage = "https://github.com/oberbichler/protosaurus"
