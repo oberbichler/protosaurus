@@ -13,9 +13,10 @@
 #include <google/protobuf/message.h>                  // Message
 #include <google/protobuf/util/json_util.h>           // MessageToJsonString, JsonStringToMessage
 
+#include <memory>                                     // unique_ptr
 #include <stdexcept>                                  // runtime_error
 #include <string>                                     // string
-#include <memory>                                     // unique_ptr
+#include <vector>                                     // vector
 
 namespace nb = nanobind;
 
@@ -33,7 +34,7 @@ private:
   google::protobuf::DescriptorPool m_pool;
 
 public:
-  void add_proto(const std::string& name, const std::string& content) {
+  void add_proto(const std::string& filename, const std::string& content) {
     ArrayInputStream raw_input(content.c_str(), strlen(content.c_str()));
     Tokenizer input(&raw_input, nullptr);
 
@@ -45,7 +46,7 @@ public:
     }
 
     if (!file_descriptor_proto.has_name()) {
-      file_descriptor_proto.set_name(name);
+      file_descriptor_proto.set_name(filename);
     }
 
     const FileDescriptor* file_desc = m_pool.BuildFile(file_descriptor_proto);
@@ -139,6 +140,33 @@ public:
     message->SerializeToString(&out);
 
     return nb::bytes(out.c_str(), out.size());
+  }
+
+  std::string message_type_from_index(const std::string& filename, const std::vector<int> message_index) {
+    if (message_index.size() == 0) {
+      throw std::runtime_error("Message index is empty");
+    }
+
+    const FileDescriptor* file_descriptor = m_pool.FindFileByName(filename);
+
+    if (file_descriptor == nullptr) {
+      throw std::runtime_error("Could not find file descriptor");
+    }
+
+    auto it = message_index.begin();
+
+    auto* descriptor = file_descriptor->message_type(*it);
+
+    while (++it != message_index.end()) {
+      if (*it < 0 || descriptor->nested_type_count() <= *it) {
+        auto position = std::distance(message_index.begin(), it);
+        throw std::runtime_error("Index out of range at position " + std::to_string(position));
+      }
+      
+      descriptor = descriptor->nested_type(*it);
+    }
+
+    return descriptor->full_name();
   }
 };
 
