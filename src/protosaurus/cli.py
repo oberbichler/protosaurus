@@ -4,6 +4,7 @@ from io import BytesIO
 from urllib3.exceptions import InsecureRequestWarning
 
 import click
+import json
 import requests
 import struct
 import sys
@@ -46,7 +47,7 @@ def _get_schema(url, name, subject, version, ctx):
 def _read_byte(buffer):
     byte = buffer.read(1)
     if byte == b'':
-        raise EOFError("Unexpected EOF encountered")
+        raise EOFError('Unexpected EOF encountered')
     return ord(byte)
 
 def _read_varint(buffer):
@@ -62,12 +63,12 @@ def _read_varint(buffer):
         value = (value >> 1) ^ -(value & 1)
         return value
     except EOFError:
-        raise EOFError("Unexpected EOF while reading index")
+        raise EOFError('Unexpected EOF while reading index')
 
 def _read_index_array(buffer):
     size = _read_varint(buffer)
     if size < 0 or size > 100000:
-        raise RuntimeError("Invalid Protobuf message_index array length")
+        raise RuntimeError('Invalid Protobuf message_index array length')
 
     if size == 0:
         return [0]
@@ -80,24 +81,22 @@ def _read_index_array(buffer):
 
 
 @click.command()
-@click.argument('file',
-    type=click.File('rb'),
-    default=sys.stdin,
-)
-@click.option('--schema-registry')
+@click.argument('file', type=click.File('rb'))
+@click.option('--schema-registry', type=str, help='The URL of the Schema Registry cluster.')
 def main(file, schema_registry):
-    stream_buffer = file.buffer
-    
     while True:
-        raw_length_bytes = stream_buffer.read(4)
+        offset = file.readline().decode('utf-8')[:-1]
+        key = file.readline().decode('utf-8')[:-1]
+
+        raw_length_bytes = file.read(4)
 
         if len(raw_length_bytes) != 4:
             if len(raw_length_bytes) != 0:
-                raise Exception("Unexpected EOF")
+                raise Exception('Unexpected EOF')
             break
 
         raw_length, = struct.unpack('>I', raw_length_bytes)
-        raw_buffer = BytesIO(stream_buffer.read(raw_length))
+        raw_buffer = BytesIO(file.read(raw_length))
 
         # read header
 
@@ -116,4 +115,8 @@ def main(file, schema_registry):
 
         message_type = proto_ctx.message_type_from_index('<<<MAIN>>>', message_index)
 
-        print(proto_ctx.to_json(message_type, message_buffer))
+        message = proto_ctx.to_json(message_type, message_buffer)
+
+        output = f'{{"@offset": {offset}, "@key": "{key}", ' + message[1:]
+
+        print(output)
