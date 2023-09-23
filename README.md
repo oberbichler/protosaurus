@@ -1,6 +1,6 @@
 # Protosaurus
 
-Parse and create ProtoBuffer messages at runtime.
+Parse and create ProtoBuffer messages at runtime. Deserialize Protobuf from Kafka using `kcat` and a schema registry.
 
 [![Pip Action Status][actions-pip-badge]][actions-pip-link]
 [![Wheel Action Status][actions-wheels-badge]][actions-wheels-link]
@@ -21,6 +21,18 @@ pip install protosaurus
 ```
 
 ## Usage
+
+## Deserialize Protobuf from Kafka using a schema registry
+
+If a schema registry is available, Protosaurus can deserialize Protobuf messages in Kafka automatically:
+
+```bash
+kcat -C -e -F <kafka.config> -t <topic> -f "%o\\n%k\\n%R%s" | pipx run protosaurus - --schema-registry <url>
+```
+
+## Parse Proto in Python
+
+Protosaurus can parse `.proto` definitions at runtime without using `protoc`. This allows Protobuf byte arrays to be converted to JSON and vice versa.
 
 ```python
 import json
