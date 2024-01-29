@@ -27,6 +27,12 @@ pip install protosaurus
 If a schema registry is available, Protosaurus can deserialize Protobuf messages in Kafka automatically:
 
 ```bash
+kcat -C -e -F <kafka.config> -t <topic> -f "%o\\n%k\\n%R%s" | protosaurus - --schema-registry <url>
+```
+
+Using [pipx](https://pipx.pypa.io/):
+
+```bash
 kcat -C -e -F <kafka.config> -t <topic> -f "%o\\n%k\\n%R%s" | pipx run protosaurus - --schema-registry <url>
 ```
 
