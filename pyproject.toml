@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "protosaurus"
-version = "0.3.1"
+version = "0.3.2"
 description = "Protocol Buffers at runtime"
 readme = "README.md"
 requires-python = ">=3.8"
@@ -15,8 +15,8 @@ classifiers = [
   "License :: OSI Approved :: ISC License (ISCL)",
 ]
 dependencies = [
-    "click >= 8.1",
-    "requests >= 2.31",
+  "click >= 8.1",
+  "requests >= 2.31",
 ]
 
 [project.optional-dependencies]
