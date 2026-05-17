@@ -19,14 +19,14 @@ jobs:
       with:
         submodules: true
 
+    - uses: astral-sh/setup-uv@v6
+
     - name: Build SDist
-      run: pipx run build --sdist
+      run: uv build --sdist
 
-    - name: Check metadata
-      run: pipx run twine check dist/*
-
-    - uses: actions/upload-artifact@v3
+    - uses: actions/upload-artifact@v4
       with:
+        name: sdist
         path: dist/*.tar.gz
 
 
@@ -43,35 +43,40 @@ jobs:
       with:
         submodules: true
 
+    - uses: astral-sh/setup-uv@v6
+
     - uses: pypa/cibuildwheel@v2.16.5
       env:
         CIBW_ARCHS_MACOS: x86_64 arm64
+        CIBW_BUILD_FRONTEND: "build[uv]"
 
     - name: Verify clean directory
       run: git diff --exit-code
       shell: bash
 
     - name: Upload wheels
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
+        name: wheels-${{ matrix.os }}
         path: wheelhouse/*.whl
 
 
-  upload_all:
-    name: Upload if release
+  publish:
+    name: Publish to PyPI
     needs: [build_wheels, build_sdist]
     runs-on: ubuntu-latest
     if: github.event_name == 'release' && github.event.action == 'published'
+    environment: pypi
+    permissions:
+      id-token: write
 
     steps:
-    - uses: actions/setup-python@v5
+    - uses: astral-sh/setup-uv@v6
 
-    - uses: actions/download-artifact@v3
+    - uses: actions/download-artifact@v4
       with:
-        name: artifact
         path: dist
+        merge-multiple: true
 
-    - uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        user: __token__
-        password: ${{ secrets.pypi_password }}
+    - name: Publish to PyPI
+      run: uv publish dist/*
