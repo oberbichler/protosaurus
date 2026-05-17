@@ -7,23 +7,15 @@ name = "protosaurus"
 version = "0.3.2"
 description = "Protocol Buffers at runtime"
 readme = "README.md"
-requires-python = ">=3.8"
+requires-python = ">=3.12"
 authors = [
   { name = "Thomas Oberbichler", email = "thomas.oberbichler@gmail.com" },
 ]
-classifiers = [
-  "License :: OSI Approved :: ISC License (ISCL)",
-]
-dependencies = [
-  "click >= 8.1",
-  "requests >= 2.31",
-]
+classifiers = ["License :: OSI Approved :: ISC License (ISCL)"]
+dependencies = ["click >= 8.1", "requests >= 2.31"]
 
 [project.optional-dependencies]
-test = [
-  "pytest >=6.0",
-  "deepdiff",
-]
+test = ["pytest >=6.0", "deepdiff"]
 
 [project.scripts]
 protosaurus = "protosaurus.cli:main"
@@ -37,6 +29,7 @@ build-dir = "build/{wheel_tag}"
 wheel.py-api = "cp312"
 
 [tool.cibuildwheel]
+build-frontend = "build[uv]"
 build-verbosity = 1
 test-command = "pytest {project}/tests"
 test-requires = ["pytest", "deepdiff"]
