@@ -47,6 +47,7 @@ jobs:
 
     - uses: pypa/cibuildwheel@v3.4.1
       env:
+        CIBW_BUILD: "cp312-*"
         CIBW_ARCHS_MACOS: x86_64 arm64
         CIBW_BUILD_FRONTEND: "build[uv]"
 

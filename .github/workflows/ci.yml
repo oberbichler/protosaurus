@@ -9,20 +9,19 @@ on:
 
 jobs:
   test:
-    name: Test (${{ matrix.platform }}, Python ${{ matrix.python-version }})
+    name: Test (${{ matrix.platform }})
     runs-on: ${{ matrix.platform }}
     strategy:
       fail-fast: false
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
-        python-version: ["3.12", "3.13"]
 
     steps:
     - uses: actions/checkout@v4
 
     - uses: astral-sh/setup-uv@v6
       with:
-        python-version: ${{ matrix.python-version }}
+        python-version: "3.12"
 
     - name: Install
       run: uv sync --extra test --verbose
