@@ -1,4 +1,4 @@
-cmake_minimum_required(VERSION 3.15...3.26)
+cmake_minimum_required(VERSION 3.16...3.26)
 
 project(protosaurus LANGUAGES CXX)
 
@@ -36,10 +36,16 @@ find_package(Python 3.8
 find_package(nanobind CONFIG REQUIRED)
 
 set(protobuf_MSVC_STATIC_RUNTIME off)
+set(protobuf_BUILD_TESTS OFF CACHE BOOL "" FORCE)
+set(protobuf_BUILD_PROTOC_BINARIES OFF CACHE BOOL "" FORCE)
+set(protobuf_BUILD_LIBPROTOC OFF CACHE BOOL "" FORCE)
+set(protobuf_BUILD_LIBUPB OFF CACHE BOOL "" FORCE)
+set(protobuf_INSTALL OFF CACHE BOOL "" FORCE)
+set(ABSL_PROPAGATE_CXX_STD ON CACHE BOOL "" FORCE)
 
 include(cmake/CPM.cmake)
 
-CPMAddPackage("gh:protocolbuffers/protobuf@23.3")
+CPMAddPackage("gh:protocolbuffers/protobuf@34.1")
 
 nanobind_add_module(
   protosaurus_ext
