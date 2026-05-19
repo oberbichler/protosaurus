@@ -16,12 +16,24 @@ jobs:
       matrix:
         platform: [windows-latest, macos-latest, ubuntu-latest]
 
+    env:
+      CPM_SOURCE_CACHE: ${{ github.workspace }}/.cpm-cache
+
     steps:
     - uses: actions/checkout@v4
 
     - uses: astral-sh/setup-uv@v6
       with:
         python-version: "3.12"
+        enable-cache: true
+
+    - name: Cache CPM packages
+      uses: actions/cache@v4
+      with:
+        path: ${{ env.CPM_SOURCE_CACHE }}
+        key: cpm-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+        restore-keys: |
+          cpm-${{ runner.os }}-
 
     - name: Install
       run: uv sync --extra test --verbose
