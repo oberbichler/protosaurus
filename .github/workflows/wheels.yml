@@ -48,6 +48,7 @@ jobs:
     - uses: pypa/cibuildwheel@v3
       env:
         CIBW_ARCHS_MACOS: x86_64 arm64
+        CIBW_BUILD_FRONTEND: "build[uv]"
 
     - name: Verify clean directory
       run: git diff --exit-code
