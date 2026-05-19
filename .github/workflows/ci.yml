@@ -31,7 +31,7 @@ jobs:
       uses: actions/cache@v5
       with:
         path: ${{ env.CPM_SOURCE_CACHE }}
-        key: cpm-${{ runner.os }}-${{ hashFiles('CMakeLists.txt') }}
+        key: cpm-${{ runner.os }}-${{ hashFiles('CMakeLists.txt', 'cmake/CPM.cmake') }}
         restore-keys: |
           cpm-${{ runner.os }}-
 
