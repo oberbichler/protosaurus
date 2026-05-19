@@ -29,7 +29,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED on)
 set(CMAKE_POSITION_INDEPENDENT_CODE on)
 
-find_package(Python 3.8
+find_package(Python 3.12
   REQUIRED COMPONENTS Interpreter Development.Module
   OPTIONAL_COMPONENTS Development.SABIModule)
 
