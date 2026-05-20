@@ -63,6 +63,12 @@ def test_index_out_of_range_raises(ctx):
     }
     """)
 
+    with pytest.raises(RuntimeError, match='Index out of range at position 0'):
+        ctx.message_type_from_index('test', [-1])
+
+    with pytest.raises(RuntimeError, match='Index out of range at position 0'):
+        ctx.message_type_from_index('test', [99])
+
     with pytest.raises(RuntimeError, match='Index out of range at position 1'):
         ctx.message_type_from_index('test', [0, -1])
 

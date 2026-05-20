@@ -5,7 +5,7 @@ on:
   pull_request:
   push:
     branches:
-     - master
+     - main
   release:
     types:
       - published
@@ -15,16 +15,18 @@ jobs:
     name: Build SDist
     runs-on: ubuntu-latest
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
 
-    - uses: astral-sh/setup-uv@v6
+    - uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
 
     - name: Build SDist
       run: uv build --sdist
 
-    - uses: actions/upload-artifact@v4
+    - uses: actions/upload-artifact@v7
       with:
         name: sdist
         path: dist/*.tar.gz
@@ -39,14 +41,17 @@ jobs:
         os: [ubuntu-latest, macos-latest, windows-latest]
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v6
       with:
         submodules: true
 
-    - uses: astral-sh/setup-uv@v6
+    - uses: astral-sh/setup-uv@v7
+      with:
+        enable-cache: true
 
-    - uses: pypa/cibuildwheel@v2.16.5
+    - uses: pypa/cibuildwheel@v3.4.1
       env:
+        CIBW_BUILD: "cp312-*"
         CIBW_ARCHS_MACOS: x86_64 arm64
         CIBW_BUILD_FRONTEND: "build[uv]"
 
@@ -55,7 +60,7 @@ jobs:
       shell: bash
 
     - name: Upload wheels
-      uses: actions/upload-artifact@v4
+      uses: actions/upload-artifact@v7
       with:
         name: wheels-${{ matrix.os }}
         path: wheelhouse/*.whl
@@ -71,9 +76,9 @@ jobs:
       id-token: write
 
     steps:
-    - uses: astral-sh/setup-uv@v6
+    - uses: astral-sh/setup-uv@v7
 
-    - uses: actions/download-artifact@v4
+    - uses: actions/download-artifact@v8
       with:
         path: dist
         merge-multiple: true

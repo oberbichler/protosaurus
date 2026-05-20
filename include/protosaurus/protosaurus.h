@@ -1,7 +1,5 @@
 #pragma once
 
-#include <protosaurus/protosaurus.h>
-
 #include <nanobind/nanobind.h>
 #include <nanobind/stl/string.h>
 
@@ -35,7 +33,7 @@ private:
 
 public:
   void add_proto(const std::string& filename, const std::string& content) {
-    ArrayInputStream raw_input(content.c_str(), strlen(content.c_str()));
+    ArrayInputStream raw_input(content.c_str(), static_cast<int>(content.size()));
     Tokenizer input(&raw_input, nullptr);
 
     FileDescriptorProto file_descriptor_proto;
@@ -56,7 +54,7 @@ public:
     }
   }
 
-  std::string to_json(std::string message_type, nb::bytes data) {
+  std::string to_json(const std::string& message_type, nb::bytes data) {
     // get descriptor
 
     const Descriptor* descriptor = m_pool.FindMessageTypeByName(message_type);
@@ -100,7 +98,7 @@ public:
     return out;
   }
 
-  nb::bytes from_json(std::string message_type, std::string data) {
+  nb::bytes from_json(const std::string& message_type, const std::string& data) {
     // get descriptor
 
     const Descriptor* descriptor = m_pool.FindMessageTypeByName(message_type);
@@ -142,7 +140,7 @@ public:
     return nb::bytes(out.c_str(), out.size());
   }
 
-  std::string message_type_from_index(const std::string& filename, const std::vector<int> message_index) {
+  std::string message_type_from_index(const std::string& filename, const std::vector<int>& message_index) {
     if (message_index.size() == 0) {
       throw std::runtime_error("Message index is empty");
     }
@@ -155,6 +153,10 @@ public:
 
     auto it = message_index.begin();
 
+    if (*it < 0 || file_descriptor->message_type_count() <= *it) {
+      throw std::runtime_error("Index out of range at position 0");
+    }
+
     auto* descriptor = file_descriptor->message_type(*it);
 
     while (++it != message_index.end()) {
@@ -166,7 +168,7 @@ public:
       descriptor = descriptor->nested_type(*it);
     }
 
-    return descriptor->full_name();
+    return std::string(descriptor->full_name());
   }
 };
 
