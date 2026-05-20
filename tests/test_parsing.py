@@ -195,6 +195,32 @@ def test_import(ctx):
     assert_json_equals(actual_json, {'name': 'Iguanodon', 'diet': 'herbivorous', 'length': 10})
 
 
+def test_from_json_import(ctx):
+    ctx.add_proto('diet.proto',
+        """
+        syntax = "proto3";
+        enum Diet {
+            carnivorous = 0;
+            herbivorous = 1;
+        }
+        """)
+
+    ctx.add_proto('animal.proto',
+        """
+        syntax = "proto3";
+        import "diet.proto";
+        message Animal {
+            string name = 1;
+            Diet diet = 2;
+            double length = 3;
+        }
+        """)
+
+    actual_msg = ctx.from_json('Animal', json.dumps({'name': 'Iguanodon', 'diet': 'herbivorous', 'length': 10}))
+
+    assert_msg_equals(actual_msg, 'CglJZ3Vhbm9kb24QARkAAAAAAAAkQA==')
+
+
 def test_map(ctx):
     ctx.add_proto('test',
         """
@@ -205,6 +231,23 @@ def test_map(ctx):
         """)
     
     actual_json = ctx.to_json('test', b64decode('CgUKAUEQAQoFCgFCEAIKBQoBQxAD'))
+
+    assert_json_equals(actual_json, {'data': {'A': 1, 'B': 2, 'C': 3}})
+
+
+def test_from_json_map(ctx):
+    ctx.add_proto('test',
+        """
+        syntax = "proto3";
+        message test {
+            map<string, int32> data = 1;
+        }
+        """)
+
+    actual_msg = ctx.from_json('test', json.dumps({'data': {'A': 1, 'B': 2, 'C': 3}}))
+
+    # round-trip: encode back to JSON and compare
+    actual_json = ctx.to_json('test', actual_msg)
 
     assert_json_equals(actual_json, {'data': {'A': 1, 'B': 2, 'C': 3}})
 
@@ -228,3 +271,72 @@ def test_oneof(ctx):
     actual_json = ctx.to_json('test', b64decode('CgVzZXZlbg=='))
 
     assert_json_equals(actual_json, {'text': 'seven'})
+
+
+def test_from_json_oneof(ctx):
+    ctx.add_proto('test',
+        """
+        syntax = "proto3";
+        message test {
+            oneof data {
+                string text = 1;
+                int32 number = 2;
+            }
+        }
+        """)
+
+    actual_msg = ctx.from_json('test', json.dumps({'number': 7}))
+
+    assert_msg_equals(actual_msg, 'EAc=')
+
+    actual_msg = ctx.from_json('test', json.dumps({'text': 'seven'}))
+
+    assert_msg_equals(actual_msg, 'CgVzZXZlbg==')
+
+
+def test_to_json_empty_message(ctx):
+    ctx.add_proto('test',
+        """
+        syntax = "proto3";
+        message test {
+            bool data = 1;
+        }
+        """)
+
+    actual_json = ctx.to_json('test', b'')
+
+    assert_json_equals(actual_json, {})
+
+
+def test_from_json_empty_message(ctx):
+    ctx.add_proto('test',
+        """
+        syntax = "proto3";
+        message test {
+            bool data = 1;
+        }
+        """)
+
+    actual_msg = ctx.from_json('test', '{}')
+
+    assert actual_msg == b''
+
+
+def test_package_namespace(ctx):
+    ctx.add_proto('test',
+        """
+        syntax = "proto3";
+        package mypackage;
+        message MyMessage {
+            string name = 1;
+            int32 value = 2;
+        }
+        """)
+
+    actual_json = ctx.to_json('mypackage.MyMessage', b64decode('CgNmb28QKg=='))
+
+    assert_json_equals(actual_json, {'name': 'foo', 'value': 42})
+
+    actual_msg = ctx.from_json('mypackage.MyMessage', json.dumps({'name': 'foo', 'value': 42}))
+
+    assert_msg_equals(actual_msg, 'CgNmb28QKg==')
