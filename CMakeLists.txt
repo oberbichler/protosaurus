@@ -66,4 +66,14 @@ target_link_libraries(
   protobuf::libprotobuf
 )
 
+nanobind_add_stub(
+  protosaurus_ext_stub
+  MODULE protosaurus_ext
+  OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/protosaurus_ext.pyi"
+  PYTHON_PATH $<TARGET_FILE_DIR:protosaurus_ext>
+  DEPENDS protosaurus_ext
+)
+
 install(TARGETS protosaurus_ext LIBRARY DESTINATION protosaurus)
+install(FILES "${CMAKE_CURRENT_BINARY_DIR}/protosaurus_ext.pyi" DESTINATION protosaurus)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/protosaurus/py.typed" DESTINATION protosaurus)
