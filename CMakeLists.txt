@@ -67,3 +67,17 @@ target_link_libraries(
 )
 
 install(TARGETS protosaurus_ext LIBRARY DESTINATION protosaurus)
+install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/protosaurus/py.typed" DESTINATION protosaurus)
+
+if(NOT CMAKE_CROSSCOMPILING)
+  nanobind_add_stub(
+    protosaurus_ext_stub
+    MODULE protosaurus_ext
+    OUTPUT "${CMAKE_CURRENT_BINARY_DIR}/protosaurus_ext.pyi"
+    PYTHON_PATH $<TARGET_FILE_DIR:protosaurus_ext>
+    DEPENDS protosaurus_ext
+  )
+  install(FILES "${CMAKE_CURRENT_BINARY_DIR}/protosaurus_ext.pyi" DESTINATION protosaurus)
+else()
+  message(STATUS "Cross-compiling: skipping stub generation for protosaurus_ext")
+endif()
