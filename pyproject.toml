@@ -34,10 +34,17 @@ build-dir = "build/{wheel_tag}"
 wheel.py-api = "cp312"
 
 [tool.cibuildwheel]
+build = "cp312-*"
 build-frontend = "build[uv]"
 build-verbosity = 1
 test-command = "pytest {project}/tests"
 test-requires = ["pytest", "deepdiff"]
+
+[tool.cibuildwheel.linux]
+archs = ["x86_64", "aarch64"]
+
+[tool.cibuildwheel.macos]
+archs = ["x86_64", "arm64"]
 
 [tool.cibuildwheel.macos.environment]
 MACOSX_DEPLOYMENT_TARGET = "10.14"
