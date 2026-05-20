@@ -43,3 +43,29 @@ def test_invalid_data(ctx):
         """)
 
         ctx.to_json('test', b'invalid data')
+
+
+def test_from_json_invalid_message_type(ctx):
+    ctx.add_proto('test',
+        """
+        syntax = "proto3";
+        message test {
+            bool data = 1;
+        }
+        """)
+
+    with pytest.raises(RuntimeError, match='Could not find descriptor for message type "nonexistent"'):
+        ctx.from_json('nonexistent', '{"data": true}')
+
+
+def test_from_json_invalid_json(ctx):
+    ctx.add_proto('test',
+        """
+        syntax = "proto3";
+        message test {
+            bool data = 1;
+        }
+        """)
+
+    with pytest.raises(RuntimeError, match='Could not convert json to message'):
+        ctx.from_json('test', 'not valid json')

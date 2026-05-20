@@ -1,8 +1,5 @@
 #pragma once
 
-#include <nanobind/nanobind.h>
-#include <nanobind/stl/string.h>
-
 #include <google/protobuf/compiler/parser.h>          // Parser
 #include <google/protobuf/descriptor.h>               // DescriptorPool, FileDescriptorProto, FileDescriptor. Descriptor
 #include <google/protobuf/dynamic_message.h>          // DynamicMessageFactory
@@ -17,10 +14,6 @@
 #include <stdexcept>                                  // runtime_error
 #include <string>                                     // string
 #include <vector>                                     // vector
-
-namespace nb = nanobind;
-
-using namespace nb::literals;
 
 namespace protosaurus {
 
@@ -76,8 +69,6 @@ public:
       file_descriptor_proto.set_name(filename);
     }
 
-    nb::gil_scoped_release release;
-
     std::unique_lock lock(m_mutex);
 
     const FileDescriptor* file_desc = m_pool.BuildFile(file_descriptor_proto);
@@ -87,13 +78,7 @@ public:
     }
   }
 
-  std::string to_json(const std::string& message_type, nb::bytes data) {
-    // copy Python bytes while GIL is held
-    std::string data_copy(data.c_str(), data.size());
-
-    // release GIL for C++ work
-    nb::gil_scoped_release release;
-
+  std::string to_json(const std::string& message_type, const std::string& data) {
     std::shared_lock lock(m_mutex);
 
     // get descriptor
@@ -120,7 +105,7 @@ public:
       throw std::runtime_error("Could not create empty message from prototype");
     }
 
-    if (!message->ParseFromArray(data_copy.c_str(), data_copy.size())) {
+    if (!message->ParseFromArray(data.data(), static_cast<int>(data.size()))) {
       throw std::runtime_error("Could not parse value in buffer");
     }
 
@@ -137,62 +122,54 @@ public:
     return out;
   }
 
-  nb::bytes from_json(const std::string& message_type, const std::string& data) {
-    std::string out;
+  std::string from_json(const std::string& message_type, const std::string& data) {
+    std::shared_lock lock(m_mutex);
 
-    {
-      // release GIL for C++ work
-      nb::gil_scoped_release release;
+    // get descriptor
 
-      std::shared_lock lock(m_mutex);
+    const Descriptor* descriptor = m_pool.FindMessageTypeByName(message_type);
 
-      // get descriptor
-
-      const Descriptor* descriptor = m_pool.FindMessageTypeByName(message_type);
-
-      if (descriptor == nullptr) {
-        throw std::runtime_error("Could not find descriptor for message type \"" + message_type + "\"");
-      }
-
-      // generate prototype message
-
-      const Message* prototype = m_factory.GetPrototype(descriptor);
-
-      if (prototype == nullptr) {
-        throw std::runtime_error("Could not create prototype");
-      }
-
-      // parse data
-    
-      std::unique_ptr<Message> message(prototype->New());
-
-      if (message == nullptr) {
-        throw std::runtime_error("Could not create empty message from prototype");
-      }
-
-      // parse json
-
-      absl::Status status = util::JsonStringToMessage(data, message.get());
-
-      if (!status.ok()) {
-        throw std::runtime_error("Could not convert json to message");
-      }
-
-      if (!message->SerializeToString(&out)) {
-        throw std::runtime_error("Could not serialize message");
-      }
+    if (descriptor == nullptr) {
+      throw std::runtime_error("Could not find descriptor for message type \"" + message_type + "\"");
     }
 
-    // GIL re-acquired, safe to create nb::bytes
-    return nb::bytes(out.c_str(), out.size());
+    // generate prototype message
+
+    const Message* prototype = m_factory.GetPrototype(descriptor);
+
+    if (prototype == nullptr) {
+      throw std::runtime_error("Could not create prototype");
+    }
+
+    // parse data
+  
+    std::unique_ptr<Message> message(prototype->New());
+
+    if (message == nullptr) {
+      throw std::runtime_error("Could not create empty message from prototype");
+    }
+
+    // parse json
+
+    absl::Status status = util::JsonStringToMessage(data, message.get());
+
+    if (!status.ok()) {
+      throw std::runtime_error("Could not convert json to message");
+    }
+
+    std::string out;
+
+    if (!message->SerializeToString(&out)) {
+      throw std::runtime_error("Could not serialize message");
+    }
+
+    return out;
   }
 
   std::string message_type_from_index(const std::string& filename, const std::vector<int>& message_index) {
     if (message_index.size() == 0) {
       throw std::runtime_error("Message index is empty");
     }
-
-    nb::gil_scoped_release release;
 
     std::shared_lock lock(m_mutex);
 

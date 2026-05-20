@@ -74,3 +74,31 @@ def test_index_out_of_range_raises(ctx):
 
     with pytest.raises(RuntimeError, match='Index out of range at position 1'):
         ctx.message_type_from_index('test', [0, 2])
+
+
+def test_empty_index_raises(ctx):
+    ctx.add_proto('test',
+    """
+    syntax = "proto3";
+
+    message main_0 {
+        string data = 1;
+    }
+    """)
+
+    with pytest.raises(RuntimeError, match='Message index is empty'):
+        ctx.message_type_from_index('test', [])
+
+
+def test_invalid_filename_raises(ctx):
+    ctx.add_proto('test',
+    """
+    syntax = "proto3";
+
+    message main_0 {
+        string data = 1;
+    }
+    """)
+
+    with pytest.raises(RuntimeError, match='Could not find file descriptor'):
+        ctx.message_type_from_index('nonexistent', [0])
