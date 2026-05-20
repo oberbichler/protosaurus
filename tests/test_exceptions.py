@@ -8,7 +8,7 @@ if __name__ == "__main__":
 
 
 def test_invalid_proto(ctx):
-    with pytest.raises(RuntimeError, match='Could not parse proto'):
+    with pytest.raises(RuntimeError, match=r'Could not parse proto:\n\d+:\d+:') as exc_info:
         ctx.add_proto('test',
         """
         syntax = "proto3";
@@ -16,6 +16,9 @@ def test_invalid_proto(ctx):
             data;
         }
         """)
+
+    assert 'Could not parse proto' in str(exc_info.value)
+
 
 def test_invalid_message_type(ctx):
     with pytest.raises(RuntimeError, match='Could not find descriptor for message type "invalid type"'):

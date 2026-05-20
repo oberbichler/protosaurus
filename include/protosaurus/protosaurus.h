@@ -27,20 +27,44 @@ using namespace google::protobuf::io;
 using namespace google::protobuf::compiler;
 
 
+class ParserErrorCollector : public google::protobuf::io::ErrorCollector {
+private:
+  std::string m_errors;
+
+public:
+  void RecordError(int line, int column, absl::string_view message) override {
+    if (!m_errors.empty()) m_errors += "\n";
+    m_errors += std::to_string(line + 1) + ":" + std::to_string(column + 1) + ": " + std::string(message);
+  }
+
+  void RecordWarning(int line, int column, absl::string_view message) override {}
+
+  bool has_errors() const { return !m_errors.empty(); }
+  const std::string& errors() const { return m_errors; }
+};
+
+
 class Context {
 private:
   google::protobuf::DescriptorPool m_pool;
 
 public:
   void add_proto(const std::string& filename, const std::string& content) {
+    ParserErrorCollector error_collector;
+
     ArrayInputStream raw_input(content.c_str(), static_cast<int>(content.size()));
-    Tokenizer input(&raw_input, nullptr);
+    Tokenizer input(&raw_input, &error_collector);
 
     FileDescriptorProto file_descriptor_proto;
     Parser parser;
+    parser.RecordErrorsTo(&error_collector);
 
     if (!parser.Parse(&input, &file_descriptor_proto)) {
-      throw std::runtime_error("Could not parse proto");
+      std::string msg = "Could not parse proto";
+      if (error_collector.has_errors()) {
+        msg += ":\n" + error_collector.errors();
+      }
+      throw std::runtime_error(msg);
     }
 
     if (!file_descriptor_proto.has_name()) {
