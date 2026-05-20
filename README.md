@@ -1,20 +1,36 @@
+<p align="center">
+  <img src="logo.png" alt="Protosaurus" width="200">
+</p>
+
 # Protosaurus
 
-Parse and create ProtoBuffer messages at runtime. Deserialize Protobuf from Kafka using `kcat` and a schema registry.
+Parse and create Protobuf messages at runtime in Python — no `protoc` required. Also includes a CLI to deserialize Protobuf from Kafka using `kcat` and a schema registry.
 
-[![Pip Action Status][actions-pip-badge]][actions-pip-link]
-[![Wheel Action Status][actions-wheels-badge]][actions-wheels-link]
-[![PyPi][pypi-badge]][pypi-link]
+[![CI][actions-ci-badge]][actions-ci-link]
+[![Wheels][actions-wheels-badge]][actions-wheels-link]
+[![PyPI][pypi-badge]][pypi-link]
+[![Python][python-badge]][pypi-link]
+[![License][license-badge]][license-link]
 
-
-[actions-pip-link]:        https://github.com/oberbichler/protosaurus/actions?query=workflow%3APip
-[actions-pip-badge]:       https://github.com/oberbichler/protosaurus/workflows/Pip/badge.svg
-[actions-wheels-link]:     https://github.com/oberbichler/protosaurus/actions?query=workflow%3AWheels
-[actions-wheels-badge]:    https://github.com/oberbichler/protosaurus/workflows/Wheels/badge.svg
+[actions-ci-link]:         https://github.com/oberbichler/protosaurus/actions/workflows/ci.yml
+[actions-ci-badge]:        https://github.com/oberbichler/protosaurus/actions/workflows/ci.yml/badge.svg
+[actions-wheels-link]:     https://github.com/oberbichler/protosaurus/actions/workflows/wheels.yml
+[actions-wheels-badge]:    https://github.com/oberbichler/protosaurus/actions/workflows/wheels.yml/badge.svg
 [pypi-link]:               https://pypi.org/project/protosaurus/
 [pypi-badge]:              https://img.shields.io/pypi/v/protosaurus
+[python-badge]:            https://img.shields.io/pypi/pyversions/protosaurus
+[license-badge]:           https://img.shields.io/pypi/l/protosaurus
+[license-link]:            https://github.com/oberbichler/protosaurus/blob/main/LICENSE
 
 ## Installation
+
+Requires Python >= 3.12.
+
+```bash
+uv add protosaurus
+```
+
+Or using pip:
 
 ```bash
 pip install protosaurus
@@ -22,23 +38,9 @@ pip install protosaurus
 
 ## Usage
 
-## Deserialize Protobuf from Kafka using a schema registry
+### Parse and serialize Protobuf in Python
 
-If a schema registry is available, Protosaurus can deserialize Protobuf messages in Kafka automatically:
-
-```bash
-kcat -C -e -F <kafka.config> -t <topic> -f "%o\\n%k\\n%R%s" | protosaurus - --schema-registry <url>
-```
-
-Using [pipx](https://pipx.pypa.io/):
-
-```bash
-kcat -C -e -F <kafka.config> -t <topic> -f "%o\\n%k\\n%R%s" | pipx run protosaurus - --schema-registry <url>
-```
-
-## Parse Proto in Python
-
-Protosaurus can parse `.proto` definitions at runtime without using `protoc`. This allows Protobuf byte arrays to be converted to JSON and vice versa.
+Protosaurus can parse `.proto` definitions at runtime without using `protoc`. This allows Protobuf byte arrays to be converted to JSON and vice versa. The `Context` object is thread-safe and can be shared across threads.
 
 ```python
 import json
@@ -86,3 +88,27 @@ data = ctx.from_json('Animal', json.dumps({"name":"Iguanodon","diet":"herbivorou
 print(data)
 # >>> b'\n\tIguanodon\x10\x01\x19\x00\x00\x00\x00\x00\x00$@'
 ```
+
+### Deserialize Protobuf from Kafka using a schema registry
+
+Protosaurus also ships a CLI that can deserialize Protobuf messages from Kafka automatically when a schema registry is available:
+
+```bash
+kcat -C -e -F <kafka.config> -t <topic> -f "%o\\n%k\\n%R%s" | protosaurus - --schema-registry <url>
+```
+
+To disable SSL certificate verification (e.g. for self-signed certificates), pass `--no-verify`:
+
+```bash
+kcat -C -e -F <kafka.config> -t <topic> -f "%o\\n%k\\n%R%s" | protosaurus - --schema-registry <url> --no-verify
+```
+
+Using [uvx](https://docs.astral.sh/uv/guides/tools/) (no installation required):
+
+```bash
+kcat -C -e -F <kafka.config> -t <topic> -f "%o\\n%k\\n%R%s" | uvx protosaurus - --schema-registry <url>
+```
+
+## License
+
+ISC License — see [LICENSE](LICENSE) for details.
