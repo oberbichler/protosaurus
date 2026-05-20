@@ -30,6 +30,7 @@ using namespace google::protobuf::compiler;
 class Context {
 private:
   google::protobuf::DescriptorPool m_pool;
+  DynamicMessageFactory m_factory;
 
 public:
   void add_proto(const std::string& filename, const std::string& content) {
@@ -64,10 +65,8 @@ public:
     }
 
     // generate prototype message
-  
-    DynamicMessageFactory factory;
 
-    const Message* prototype = factory.GetPrototype(descriptor);
+    const Message* prototype = m_factory.GetPrototype(descriptor);
 
     if (prototype == nullptr) {
       throw std::runtime_error("Could not create prototype");
@@ -108,10 +107,8 @@ public:
     }
 
     // generate prototype message
-  
-    DynamicMessageFactory factory;
 
-    const Message* prototype = factory.GetPrototype(descriptor);
+    const Message* prototype = m_factory.GetPrototype(descriptor);
 
     if (prototype == nullptr) {
       throw std::runtime_error("Could not create prototype");
