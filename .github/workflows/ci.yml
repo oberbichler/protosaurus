@@ -20,7 +20,7 @@ jobs:
       CPM_SOURCE_CACHE: ${{ github.workspace }}/.cpm-cache
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
 
     - uses: astral-sh/setup-uv@v7
       with:
