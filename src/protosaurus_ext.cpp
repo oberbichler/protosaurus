@@ -10,6 +10,10 @@ using namespace nb::literals;
 NB_MODULE(protosaurus_ext, m) {
   using protosaurus::Context;
 
+  // clang-format off
+  // clang-format cannot keep the nanobind `.def(name, lambda, args...)` idiom compact:
+  // a multi-line lambda in non-final argument position forces every argument onto its
+  // own line. Formatting is disabled here to preserve the conventional binding layout.
   nb::class_<Context>(m, "Context")
     .def(nb::init<>())
     .def("add_proto", [](Context& self, const std::string& filename, const std::string& content) {
@@ -36,4 +40,5 @@ NB_MODULE(protosaurus_ext, m) {
       nb::gil_scoped_release release;
       return self.message_type_from_index(filename, message_index);
     }, "filename"_a, "message_index"_a);
+  // clang-format on
 }

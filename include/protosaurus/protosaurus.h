@@ -1,19 +1,19 @@
 #pragma once
 
-#include <google/protobuf/compiler/parser.h>          // Parser
-#include <google/protobuf/descriptor.h>               // DescriptorPool, FileDescriptorProto, FileDescriptor. Descriptor
-#include <google/protobuf/dynamic_message.h>          // DynamicMessageFactory
-#include <google/protobuf/io/tokenizer.h>             // Tokenizer
-#include <google/protobuf/io/zero_copy_stream_impl.h> // ArrayInputStream
-#include <google/protobuf/message.h>                  // Message
-#include <google/protobuf/util/json_util.h>           // MessageToJsonString, JsonStringToMessage
+#include <google/protobuf/compiler/parser.h>  // Parser
+#include <google/protobuf/descriptor.h>       // DescriptorPool, FileDescriptorProto, FileDescriptor. Descriptor
+#include <google/protobuf/dynamic_message.h>  // DynamicMessageFactory
+#include <google/protobuf/io/tokenizer.h>     // Tokenizer
+#include <google/protobuf/io/zero_copy_stream_impl.h>  // ArrayInputStream
+#include <google/protobuf/message.h>                   // Message
+#include <google/protobuf/util/json_util.h>            // MessageToJsonString, JsonStringToMessage
 
-#include <memory>                                     // unique_ptr
-#include <mutex>                                      // unique_lock
-#include <shared_mutex>                               // shared_mutex, shared_lock
-#include <stdexcept>                                  // runtime_error
-#include <string>                                     // string
-#include <vector>                                     // vector
+#include <memory>        // unique_ptr
+#include <mutex>         // unique_lock
+#include <shared_mutex>  // shared_mutex, shared_lock
+#include <stdexcept>     // runtime_error
+#include <string>        // string
+#include <vector>        // vector
 
 namespace protosaurus {
 
@@ -98,7 +98,7 @@ public:
     }
 
     // parse data
-  
+
     std::unique_ptr<Message> message(prototype->New());
 
     if (message == nullptr) {
@@ -118,7 +118,7 @@ public:
     if (!status.ok()) {
       throw std::runtime_error("Could not convert message to json");
     }
-    
+
     return out;
   }
 
@@ -142,7 +142,7 @@ public:
     }
 
     // parse data
-  
+
     std::unique_ptr<Message> message(prototype->New());
 
     if (message == nullptr) {
@@ -192,7 +192,7 @@ public:
         auto position = std::distance(message_index.begin(), it);
         throw std::runtime_error("Index out of range at position " + std::to_string(position));
       }
-      
+
       descriptor = descriptor->nested_type(*it);
     }
 
