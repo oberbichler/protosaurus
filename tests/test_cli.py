@@ -63,6 +63,19 @@ def test_read_varint_eof():
         _read_varint(buf)
 
 
+def test_read_varint_max_length_is_accepted():
+    # 10 bytes is the maximum length of a varint64
+    buf = BytesIO(b"\xff" * 9 + b"\x01")
+    assert _read_varint(buf) == -9223372036854775808
+
+
+def test_read_varint_too_long():
+    # 11 continuation bytes must be rejected instead of read indefinitely
+    buf = BytesIO(b"\x80" * 11 + b"\x01")
+    with pytest.raises(RuntimeError, match="Varint is too long"):
+        _read_varint(buf)
+
+
 # --- _read_index_array ---
 
 

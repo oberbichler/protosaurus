@@ -80,20 +80,23 @@ def _read_byte(buffer):
     return ord(byte)
 
 
+_MAX_VARINT_BYTES = 10
+
+
 def _read_varint(buffer):
     value = 0
     shift = 0
     try:
-        while True:
+        for _ in range(_MAX_VARINT_BYTES):
             i = _read_byte(buffer)
             value |= (i & 0x7F) << shift
             shift += 7
             if not (i & 0x80):
-                break
-        value = (value >> 1) ^ -(value & 1)
-        return value
+                return (value >> 1) ^ -(value & 1)
     except EOFError:
-        raise EOFError("Unexpected EOF while reading index")
+        raise EOFError("Unexpected EOF while reading index") from None
+
+    raise RuntimeError(f"Varint is too long (more than {_MAX_VARINT_BYTES} bytes)")
 
 
 def _read_index_array(buffer):
