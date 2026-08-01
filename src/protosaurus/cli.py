@@ -27,10 +27,12 @@ def _get_schema_by_id(url, id, verify_ssl=True):
     if ctx is not None:
         return ctx
 
-    _schema_cache[id] = ctx = Context()
+    ctx = Context()
 
     session = _get_session(verify_ssl)
-    data = session.get(f"{url}/schemas/ids/{id}").json()
+    response = session.get(f"{url}/schemas/ids/{id}")
+    response.raise_for_status()
+    data = response.json()
 
     for reference in data.get("references", []):
         _get_schema(
@@ -44,12 +46,16 @@ def _get_schema_by_id(url, id, verify_ssl=True):
 
     ctx.add_proto("<<<MAIN>>>", data["schema"])
 
+    _schema_cache[id] = ctx
+
     return ctx
 
 
 def _get_schema(url, name, subject, version, ctx, verify_ssl=True):
     session = _get_session(verify_ssl)
-    data = session.get(f"{url}/subjects/{subject}/versions/{version}").json()
+    response = session.get(f"{url}/subjects/{subject}/versions/{version}")
+    response.raise_for_status()
+    data = response.json()
 
     for reference in data.get("references", []):
         _get_schema(
