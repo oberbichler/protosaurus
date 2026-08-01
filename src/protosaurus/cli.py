@@ -1,10 +1,10 @@
-from protosaurus import Context
-
+import struct
 from io import BytesIO
 
 import click
 import requests
-import struct
+
+from protosaurus import Context
 
 # utility: compile protos from schema-registry
 
@@ -21,7 +21,7 @@ def _get_session(verify_ssl):
 
 
 def _get_schema_by_id(url, id, verify_ssl=True):
-    ctx = _schema_cache.get(id, None)
+    ctx = _schema_cache.get(id)
 
     if ctx is not None:
         return ctx

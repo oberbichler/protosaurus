@@ -21,6 +21,7 @@ dependencies = ["click >= 8.1", "requests >= 2.31"]
 
 [project.optional-dependencies]
 test = ["pytest >=6.0", "deepdiff"]
+lint = ["ruff >=0.16"]
 
 [project.scripts]
 protosaurus = "protosaurus.cli:main"
@@ -48,3 +49,13 @@ archs = ["x86_64", "arm64"]
 
 [tool.cibuildwheel.macos.environment]
 MACOSX_DEPLOYMENT_TARGET = "10.14"
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["protosaurus"]

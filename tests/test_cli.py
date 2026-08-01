@@ -1,9 +1,8 @@
-import pytest
-
 from io import BytesIO
 
-from protosaurus.cli import _read_byte, _read_varint, _read_index_array
+import pytest
 
+from protosaurus.cli import _read_byte, _read_index_array, _read_varint
 
 if __name__ == "__main__":
     pytest.main()

@@ -1,7 +1,6 @@
-import pytest
-
 from base64 import b64decode
 
+import pytest
 
 if __name__ == "__main__":
     pytest.main()
@@ -21,7 +20,9 @@ def test_invalid_proto(ctx):
 
 
 def test_invalid_message_type(ctx):
-    with pytest.raises(RuntimeError, match='Could not find descriptor for message type "invalid type"'):
+    with pytest.raises(
+        RuntimeError, match='Could not find descriptor for message type "invalid type"'
+    ):
         ctx.add_proto('test',
         """
         syntax = "proto3";
@@ -54,7 +55,9 @@ def test_from_json_invalid_message_type(ctx):
         }
         """)
 
-    with pytest.raises(RuntimeError, match='Could not find descriptor for message type "nonexistent"'):
+    with pytest.raises(
+        RuntimeError, match='Could not find descriptor for message type "nonexistent"'
+    ):
         ctx.from_json('nonexistent', '{"data": true}')
 
 
