@@ -17,9 +17,19 @@
 
 namespace protosaurus {
 
-using namespace google::protobuf;
-using namespace google::protobuf::io;
-using namespace google::protobuf::compiler;
+// Targeted using-declarations instead of using-directives: a `using namespace` in a
+// header leaks every name of those namespaces into whatever includes it.
+using google::protobuf::Descriptor;
+using google::protobuf::DescriptorPool;
+using google::protobuf::DynamicMessageFactory;
+using google::protobuf::FileDescriptor;
+using google::protobuf::FileDescriptorProto;
+using google::protobuf::Message;
+using google::protobuf::compiler::Parser;
+using google::protobuf::io::ArrayInputStream;
+using google::protobuf::io::Tokenizer;
+
+namespace util = google::protobuf::util;
 
 
 class ParserErrorCollector : public google::protobuf::io::ErrorCollector {
@@ -32,7 +42,7 @@ public:
     m_errors += std::to_string(line + 1) + ":" + std::to_string(column + 1) + ": " + std::string(message);
   }
 
-  void RecordWarning(int line, int column, absl::string_view message) override {}
+  void RecordWarning(int /*line*/, int /*column*/, absl::string_view /*message*/) override {}
 
   bool has_errors() const { return !m_errors.empty(); }
   const std::string& errors() const { return m_errors; }
@@ -41,7 +51,7 @@ public:
 
 class Context {
 private:
-  google::protobuf::DescriptorPool m_pool;
+  DescriptorPool m_pool;
   DynamicMessageFactory m_factory;
   mutable std::shared_mutex m_mutex;
 
@@ -167,7 +177,7 @@ public:
   }
 
   std::string message_type_from_index(const std::string& filename, const std::vector<int>& message_index) {
-    if (message_index.size() == 0) {
+    if (message_index.empty()) {
       throw std::runtime_error("Message index is empty");
     }
 
