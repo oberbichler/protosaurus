@@ -1,3 +1,4 @@
+import json
 import struct
 from io import BytesIO
 
@@ -104,6 +105,15 @@ def _read_index_array(buffer):
     return msg_index
 
 
+# utility: format output record
+
+
+def _format_record(offset, key, message_json):
+    record = {"@offset": int(offset), "@key": key}
+    record.update(json.loads(message_json))
+    return json.dumps(record)
+
+
 @click.command()
 @click.argument("file", type=click.File("rb"))
 @click.option(
@@ -150,6 +160,4 @@ def main(file, schema_registry, no_verify):
 
         message = proto_ctx.to_json(message_type, message_buffer)
 
-        output = f'{{"@offset": {offset}, "@key": "{key}", ' + message[1:]
-
-        print(output)
+        print(_format_record(offset, key, message))
