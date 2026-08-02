@@ -1,10 +1,11 @@
-from protosaurus import Context
-
+import json
+import struct
 from io import BytesIO
 
 import click
 import requests
-import struct
+
+from protosaurus import Context
 
 # utility: compile protos from schema-registry
 
@@ -21,15 +22,17 @@ def _get_session(verify_ssl):
 
 
 def _get_schema_by_id(url, id, verify_ssl=True):
-    ctx = _schema_cache.get(id, None)
+    ctx = _schema_cache.get(id)
 
     if ctx is not None:
         return ctx
 
-    _schema_cache[id] = ctx = Context()
+    ctx = Context()
 
     session = _get_session(verify_ssl)
-    data = session.get(f"{url}/schemas/ids/{id}").json()
+    response = session.get(f"{url}/schemas/ids/{id}")
+    response.raise_for_status()
+    data = response.json()
 
     for reference in data.get("references", []):
         _get_schema(
@@ -43,12 +46,16 @@ def _get_schema_by_id(url, id, verify_ssl=True):
 
     ctx.add_proto("<<<MAIN>>>", data["schema"])
 
+    _schema_cache[id] = ctx
+
     return ctx
 
 
 def _get_schema(url, name, subject, version, ctx, verify_ssl=True):
     session = _get_session(verify_ssl)
-    data = session.get(f"{url}/subjects/{subject}/versions/{version}").json()
+    response = session.get(f"{url}/subjects/{subject}/versions/{version}")
+    response.raise_for_status()
+    data = response.json()
 
     for reference in data.get("references", []):
         _get_schema(
@@ -73,20 +80,23 @@ def _read_byte(buffer):
     return ord(byte)
 
 
+_MAX_VARINT_BYTES = 10
+
+
 def _read_varint(buffer):
     value = 0
     shift = 0
     try:
-        while True:
+        for _ in range(_MAX_VARINT_BYTES):
             i = _read_byte(buffer)
             value |= (i & 0x7F) << shift
             shift += 7
             if not (i & 0x80):
-                break
-        value = (value >> 1) ^ -(value & 1)
-        return value
+                return (value >> 1) ^ -(value & 1)
     except EOFError:
-        raise EOFError("Unexpected EOF while reading index")
+        raise EOFError("Unexpected EOF while reading index") from None
+
+    raise RuntimeError(f"Varint is too long (more than {_MAX_VARINT_BYTES} bytes)")
 
 
 def _read_index_array(buffer):
@@ -102,6 +112,15 @@ def _read_index_array(buffer):
         msg_index.append(_read_varint(buffer))
 
     return msg_index
+
+
+# utility: format output record
+
+
+def _format_record(offset, key, message_json):
+    record = {"@offset": int(offset), "@key": key}
+    record.update(json.loads(message_json))
+    return json.dumps(record)
 
 
 @click.command()
@@ -150,6 +169,4 @@ def main(file, schema_registry, no_verify):
 
         message = proto_ctx.to_json(message_type, message_buffer)
 
-        output = f'{{"@offset": {offset}, "@key": "{key}", ' + message[1:]
-
-        print(output)
+        print(_format_record(offset, key, message))

@@ -1,9 +1,8 @@
 import json
-import pytest
-
 from base64 import b64decode
-from deepdiff import DeepDiff
 
+import pytest
+from deepdiff import DeepDiff
 
 if __name__ == '__main__':
     pytest.main()
@@ -216,7 +215,10 @@ def test_from_json_import(ctx):
         }
         """)
 
-    actual_msg = ctx.from_json('Animal', json.dumps({'name': 'Iguanodon', 'diet': 'herbivorous', 'length': 10}))
+    actual_msg = ctx.from_json(
+        'Animal',
+        json.dumps({'name': 'Iguanodon', 'diet': 'herbivorous', 'length': 10}),
+    )
 
     assert_msg_equals(actual_msg, 'CglJZ3Vhbm9kb24QARkAAAAAAAAkQA==')
 

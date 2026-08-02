@@ -1,9 +1,9 @@
-import pytest
-
+import json
 from io import BytesIO
 
-from protosaurus.cli import _read_byte, _read_varint, _read_index_array
+import pytest
 
+from protosaurus.cli import _format_record, _read_byte, _read_index_array, _read_varint
 
 if __name__ == "__main__":
     pytest.main()
@@ -63,6 +63,19 @@ def test_read_varint_eof():
         _read_varint(buf)
 
 
+def test_read_varint_max_length_is_accepted():
+    # 10 bytes is the maximum length of a varint64
+    buf = BytesIO(b"\xff" * 9 + b"\x01")
+    assert _read_varint(buf) == -9223372036854775808
+
+
+def test_read_varint_too_long():
+    # 11 continuation bytes must be rejected instead of read indefinitely
+    buf = BytesIO(b"\x80" * 11 + b"\x01")
+    with pytest.raises(RuntimeError, match="Varint is too long"):
+        _read_varint(buf)
+
+
 # --- _read_index_array ---
 
 
@@ -90,3 +103,36 @@ def test_read_index_array_negative_size():
     buf = BytesIO(b"\x01")
     with pytest.raises(RuntimeError, match="Invalid Protobuf message_index array length"):
         _read_index_array(buf)
+
+
+# --- _format_record ---
+
+
+def test_format_record_plain():
+    result = _format_record("42", "user-1", '{"name":"Iguanodon","length":10}')
+    assert json.loads(result) == {
+        "@offset": 42,
+        "@key": "user-1",
+        "name": "Iguanodon",
+        "length": 10,
+    }
+
+
+def test_format_record_escapes_quotes_in_key():
+    result = _format_record("7", 'he said "hi"', '{"name":"Rex"}')
+    assert json.loads(result) == {"@offset": 7, "@key": 'he said "hi"', "name": "Rex"}
+
+
+def test_format_record_escapes_newline_and_backslash_in_key():
+    result = _format_record("7", "a\\b\nc", '{"name":"Rex"}')
+    assert json.loads(result) == {"@offset": 7, "@key": "a\\b\nc", "name": "Rex"}
+
+
+def test_format_record_offset_is_numeric():
+    result = _format_record("123", "k", "{}")
+    assert json.loads(result)["@offset"] == 123
+
+
+def test_format_record_preserves_key_order():
+    result = _format_record("1", "k", '{"z":1}')
+    assert list(json.loads(result).keys()) == ["@offset", "@key", "z"]

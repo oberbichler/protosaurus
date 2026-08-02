@@ -1,0 +1,13 @@
+---
+BasedOnStyle: Google
+IndentWidth: 2
+AccessModifierOffset: -2
+ColumnLimit: 120
+MaxEmptyLinesToKeep: 2
+AlignTrailingComments: true
+DerivePointerAlignment: false
+PointerAlignment: Left
+# Keep the author's include grouping. Google's default (Regroup) would merge the
+# blocks and sort protosaurus.h behind the nanobind headers, which defeats the
+# "own header first" check that the header compiles standalone.
+IncludeBlocks: Preserve
