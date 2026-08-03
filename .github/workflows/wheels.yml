@@ -1,13 +1,13 @@
 name: Wheels
 
+# Build verification only. Publishing to PyPI is owned by release.yml, which
+# builds from the tag it creates. Adding a `release` trigger plus a publish job
+# here would upload the same version twice and fail with HTTP 409.
 on:
   workflow_dispatch:
   push:
     branches:
       - main
-  release:
-    types:
-      - published
 
 concurrency:
   group: wheels-${{ github.ref }}
@@ -57,11 +57,10 @@ jobs:
       with:
         platforms: arm64
 
+    # Build settings live in [tool.cibuildwheel] in pyproject.toml. Do not add
+    # CIBW_* environment variables here: they override the pyproject values and
+    # previously silenced the macOS x86_64 target.
     - uses: pypa/cibuildwheel@v3.4.1
-      env:
-        CIBW_BUILD: "cp312-*"
-        CIBW_ARCHS_MACOS: auto
-        CIBW_BUILD_FRONTEND: "build[uv]"
 
     - name: Verify clean directory
       run: git diff --exit-code
@@ -72,24 +71,3 @@ jobs:
       with:
         name: wheels-${{ matrix.os }}
         path: wheelhouse/*.whl
-
-
-  publish:
-    name: Publish to PyPI
-    needs: [build_wheels, build_sdist]
-    runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'published'
-    environment: pypi
-    permissions:
-      id-token: write
-      attestations: write
-
-    steps:
-    - uses: actions/download-artifact@v8
-      with:
-        path: dist
-        merge-multiple: true
-
-    - uses: pypa/gh-action-pypi-publish@release/v1
-      with:
-        attestations: true

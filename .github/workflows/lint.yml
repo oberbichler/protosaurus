@@ -50,8 +50,8 @@ jobs:
 
     - name: Check formatting
       run: |
-        uvx clang-format@${{ env.CLANG_FORMAT_VERSION }} --dry-run --Werror \
-          $(git ls-files '*.cpp' '*.h')
+        git ls-files -z '*.cpp' '*.h' \
+          | xargs -0 uvx clang-format@${{ env.CLANG_FORMAT_VERSION }} --dry-run --Werror
 
   types:
     name: Python (ty)
