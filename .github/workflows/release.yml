@@ -32,7 +32,7 @@ jobs:
     # Pin the checkout to main so the outcome does not depend on which ref the
     # workflow happens to be dispatched from. fetch-depth 0 brings the tags in,
     # which the duplicate check below relies on.
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         ref: main
         fetch-depth: 0
@@ -112,7 +112,7 @@ jobs:
 
     steps:
     # Build exactly what was tagged, not whatever main looks like by now.
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         ref: ${{ needs.prepare-release.outputs.version }}
 
@@ -144,7 +144,7 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v6
+    - uses: actions/checkout@v7
       with:
         ref: ${{ needs.prepare-release.outputs.version }}
 
