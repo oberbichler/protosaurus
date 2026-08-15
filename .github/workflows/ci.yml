@@ -20,7 +20,11 @@ jobs:
       CPM_SOURCE_CACHE: ${{ github.workspace }}/.cpm-cache
 
     steps:
+    # fetch-depth 0 is required: this job builds the extension, and
+    # setuptools_scm derives the version from the tags.
     - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
 
     - uses: astral-sh/setup-uv@v7
       with:

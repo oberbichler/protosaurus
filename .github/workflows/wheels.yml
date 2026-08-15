@@ -21,7 +21,11 @@ jobs:
     name: Build SDist
     runs-on: ubuntu-latest
     steps:
+    # fetch-depth 0 is required: setuptools_scm derives the version from the
+    # tags, and a shallow clone would not carry them.
     - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
 
     - uses: astral-sh/setup-uv@v7
       with:
@@ -48,7 +52,11 @@ jobs:
         os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
 
     steps:
+    # fetch-depth 0 is required: setuptools_scm derives the version from the
+    # tags, and a shallow clone would not carry them.
     - uses: actions/checkout@v7
+      with:
+        fetch-depth: 0
 
     - uses: astral-sh/setup-uv@v7
       with:

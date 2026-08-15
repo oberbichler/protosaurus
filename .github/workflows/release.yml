@@ -11,8 +11,7 @@ on:
 permissions:
   contents: read
 
-# Releases must never run concurrently: two runs would race on the version bump
-# commit and could push conflicting tags.
+# Releases must never run concurrently: two runs could push conflicting tags.
 concurrency:
   group: release
   cancel-in-progress: false
@@ -26,7 +25,7 @@ jobs:
       contents: write
 
     outputs:
-      version: ${{ steps.bump.outputs.version }}
+      version: ${{ steps.tag.outputs.version }}
 
     steps:
     # Pin the checkout to main so the outcome does not depend on which ref the
@@ -36,11 +35,6 @@ jobs:
       with:
         ref: main
         fetch-depth: 0
-
-    - uses: astral-sh/setup-uv@v7
-      with:
-        python-version: "3.12"
-        enable-cache: true
 
     - name: Validate version
       env:
@@ -67,31 +61,17 @@ jobs:
           exit 1
         fi
 
-    # `uv version` updates both pyproject.toml and uv.lock. Editing only
-    # pyproject.toml would leave the lockfile stale.
-    - name: Bump version
-      id: bump
+    # The version is derived from this tag by setuptools_scm, so tagging is the
+    # whole release action. Nothing is pushed to main, which the branch ruleset
+    # forbids anyway ("changes must be made through a pull request").
+    - name: Tag
+      id: tag
       env:
         VERSION: ${{ inputs.version }}
       run: |
-        uv version --no-sync "$VERSION"
-        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
-
-    - name: Commit, tag and push
-      env:
-        VERSION: ${{ inputs.version }}
-      run: |
-        git config user.name "github-actions[bot]"
-        git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-        git add pyproject.toml uv.lock
-        if git diff --cached --quiet; then
-          echo "::error::Version is already $VERSION - nothing to bump."
-          exit 1
-        fi
-        git commit -m "chore: bump version to $VERSION"
         git tag "$VERSION"
-        git push origin main
         git push origin "$VERSION"
+        echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
     - name: Create GitHub release
       env:
@@ -115,9 +95,12 @@ jobs:
 
     steps:
     # Build exactly what was tagged, not whatever main looks like by now.
+    # fetch-depth 0 is required: setuptools_scm derives the version from the
+    # tags, and a shallow clone would not carry them.
     - uses: actions/checkout@v7
       with:
         ref: ${{ needs.prepare-release.outputs.version }}
+        fetch-depth: 0
 
     - uses: astral-sh/setup-uv@v7
       with:
@@ -144,6 +127,7 @@ jobs:
     - uses: actions/checkout@v7
       with:
         ref: ${{ needs.prepare-release.outputs.version }}
+        fetch-depth: 0
 
     - uses: astral-sh/setup-uv@v7
       with:
