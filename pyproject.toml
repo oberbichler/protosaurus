@@ -42,7 +42,9 @@ test-command = "pytest {project}/tests"
 test-requires = ["pytest", "deepdiff"]
 
 [tool.cibuildwheel.linux]
-archs = ["x86_64", "aarch64"]
+# Each Linux runner builds only its own architecture: the workflows provide one
+# x86_64 and one aarch64 runner, so listing both here would emulate the other.
+archs = ["auto"]
 
 [tool.cibuildwheel.macos]
 archs = ["x86_64", "arm64"]

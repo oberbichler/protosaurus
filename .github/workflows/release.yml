@@ -108,7 +108,10 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        os: [ubuntu-latest, macos-latest, windows-latest]
+        # aarch64 gets its own native runner instead of being emulated on the
+        # x86_64 one. Emulating it made this job take about 1h50m, because the
+        # whole protobuf build ran under QEMU.
+        os: [ubuntu-latest, ubuntu-24.04-arm, macos-latest, windows-latest]
 
     steps:
     # Build exactly what was tagged, not whatever main looks like by now.
@@ -119,12 +122,6 @@ jobs:
     - uses: astral-sh/setup-uv@v7
       with:
         enable-cache: true
-
-    - name: Set up QEMU
-      if: runner.os == 'Linux'
-      uses: docker/setup-qemu-action@v4
-      with:
-        platforms: arm64
 
     # Build settings live in [tool.cibuildwheel] in pyproject.toml. Do not add
     # CIBW_* environment variables here: they override the pyproject values and
