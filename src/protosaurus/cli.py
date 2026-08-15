@@ -117,10 +117,12 @@ def _read_index_array(buffer):
 # utility: format output record
 
 
-def _format_record(offset, key, message_json):
+def _format_record(offset, key, message_json, pretty=False):
     record = {"@offset": int(offset), "@key": key}
     record.update(json.loads(message_json))
-    return json.dumps(record)
+    # The record wraps the message in @offset/@key and is re-serialised here, so
+    # indentation has to be applied at this step rather than by to_json.
+    return json.dumps(record, indent=2 if pretty else None)
 
 
 @click.command()
@@ -134,7 +136,41 @@ def _format_record(offset, key, message_json):
     default=False,
     help="Disable SSL certificate verification (not recommended for production).",
 )
-def main(file, schema_registry, no_verify):
+@click.option(
+    "--defaults",
+    is_flag=True,
+    default=False,
+    help="Print fields that do not track presence even when they hold their default.",
+)
+@click.option("--pretty", is_flag=True, default=False, help="Indent the output.")
+@click.option(
+    "--proto-field-names",
+    is_flag=True,
+    default=False,
+    help="Keep the field names as written in the .proto instead of lowerCamelCase.",
+)
+@click.option(
+    "--enums-as-ints",
+    is_flag=True,
+    default=False,
+    help="Print enum values as numbers instead of their names.",
+)
+@click.option(
+    "--unquote-int64",
+    is_flag=True,
+    default=False,
+    help="Print 64-bit integers unquoted when the value fits a double exactly.",
+)
+def main(
+    file,
+    schema_registry,
+    no_verify,
+    defaults,
+    pretty,
+    proto_field_names,
+    enums_as_ints,
+    unquote_int64,
+):
     verify_ssl = not no_verify
     while True:
         offset = file.readline().decode("utf-8")[:-1]
@@ -167,6 +203,13 @@ def main(file, schema_registry, no_verify):
 
         message_type = proto_ctx.message_type_from_index("<<<MAIN>>>", message_index)
 
-        message = proto_ctx.to_json(message_type, message_buffer)
+        message = proto_ctx.to_json(
+            message_type,
+            message_buffer,
+            include_defaults=defaults,
+            proto_field_names=proto_field_names,
+            enums_as_ints=enums_as_ints,
+            unquote_int64=unquote_int64,
+        )
 
-        print(_format_record(offset, key, message))
+        print(_format_record(offset, key, message, pretty=pretty))

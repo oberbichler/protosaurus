@@ -1,9 +1,18 @@
 import json
+import struct
 from io import BytesIO
 
 import pytest
+from click.testing import CliRunner
 
-from protosaurus.cli import _format_record, _read_byte, _read_index_array, _read_varint
+from protosaurus import cli
+from protosaurus.cli import (
+    _format_record,
+    _read_byte,
+    _read_index_array,
+    _read_varint,
+    main,
+)
 
 if __name__ == "__main__":
     pytest.main()
@@ -136,3 +145,113 @@ def test_format_record_offset_is_numeric():
 def test_format_record_preserves_key_order():
     result = _format_record("1", "k", '{"z":1}')
     assert list(json.loads(result).keys()) == ["@offset", "@key", "z"]
+
+
+def test_format_record_is_single_line_by_default():
+    result = _format_record("1", "k", '{"z":1}')
+    assert "\n" not in result
+
+
+def test_format_record_pretty_indents_output():
+    result = _format_record("1", "k", '{"z":1}', pretty=True)
+    assert "\n" in result
+    assert json.loads(result) == {"@offset": 1, "@key": "k", "z": 1}
+
+
+# --- CLI json output options ---
+
+_ORDER_PROTO = """
+    syntax = "proto3";
+    message Order {
+        int64 order_id = 1;
+        string customer_name = 2;
+        Status status = 3;
+        repeated string tags = 4;
+    }
+    enum Status {
+        STATUS_UNKNOWN = 0;
+        STATUS_SHIPPED = 1;
+    }
+    """
+
+_SCHEMA_ID = 7
+
+
+def _frame(offset, key, payload):
+    """Build one record in the format main() reads."""
+    raw = struct.pack(">bI", 0, _SCHEMA_ID) + b"\x00" + payload
+    return f"{offset}\n{key}\n".encode() + struct.pack(">I", len(raw)) + raw
+
+
+@pytest.fixture
+def order_cli(tmp_path, monkeypatch, ctx):
+    """Wire the CLI to a fixed schema and return a runner for a single record."""
+    monkeypatch.setattr(cli, "_schema_cache", {})
+    monkeypatch.setattr(cli, "_session", None)
+
+    ctx.add_proto("<<<MAIN>>>", _ORDER_PROTO)
+    monkeypatch.setattr(cli, "_get_schema_by_id", lambda url, id, verify_ssl=True: ctx)
+
+    def run(message, *options):
+        payload = ctx.from_json("Order", json.dumps(message))
+        path = tmp_path / "records.bin"
+        path.write_bytes(_frame("42", "user-1", payload))
+
+        result = CliRunner().invoke(
+            main, [str(path), "--schema-registry", "http://registry", *options]
+        )
+        assert result.exit_code == 0, result.output
+        return result.output
+
+    return run
+
+
+def test_cli_omits_default_fields_without_flag(order_cli):
+    record = json.loads(order_cli({"orderId": "7"}))
+
+    assert "customerName" not in record
+
+
+def test_cli_defaults_flag_includes_default_fields(order_cli):
+    record = json.loads(order_cli({"orderId": "7"}, "--defaults"))
+
+    assert record["customerName"] == ""
+    assert record["tags"] == []
+
+
+def test_cli_proto_field_names_flag_keeps_snake_case(order_cli):
+    record = json.loads(order_cli({"orderId": "7"}, "--proto-field-names"))
+
+    assert record["order_id"] == "7"
+
+
+def test_cli_enums_as_ints_flag_prints_number(order_cli):
+    record = json.loads(order_cli({"status": "STATUS_SHIPPED"}, "--enums-as-ints"))
+
+    assert record["status"] == 1
+
+
+def test_cli_unquote_int64_flag_prints_number(order_cli):
+    record = json.loads(order_cli({"orderId": "7"}, "--unquote-int64"))
+
+    assert record["orderId"] == 7
+
+
+def test_cli_pretty_flag_indents_output(order_cli):
+    output = order_cli({"orderId": "7"}, "--pretty")
+
+    assert "\n" in output.strip()
+    assert json.loads(output)["orderId"] == "7"
+
+
+def test_cli_output_is_single_line_without_pretty(order_cli):
+    output = order_cli({"orderId": "7"})
+
+    assert output.strip().count("\n") == 0
+
+
+def test_cli_record_metadata_survives_options(order_cli):
+    record = json.loads(order_cli({"orderId": "7"}, "--defaults", "--proto-field-names"))
+
+    assert record["@offset"] == 42
+    assert record["@key"] == "user-1"

@@ -49,6 +49,32 @@ public:
 };
 
 
+// Subset of google::protobuf::json::PrintOptions exposed to callers. Every option
+// defaults to the ProtoJSON behaviour, so a default-constructed JsonOptions
+// produces exactly the output of MessageToJsonString without options.
+struct JsonOptions {
+  // Print fields that do not track presence even when they hold their default:
+  // implicit-presence scalars, empty lists and empty maps. Fields with explicit
+  // presence (proto3 `optional`, submessages, oneof members) stay omitted when
+  // unset, because for them "unset" differs from "set to the default".
+  bool include_defaults = false;
+
+  // Indent and line-break the output instead of emitting a single line.
+  bool pretty = false;
+
+  // Keep the field names as written in the .proto instead of lowerCamelCase.
+  bool proto_field_names = false;
+
+  // Emit enum values as numbers instead of their names.
+  bool enums_as_ints = false;
+
+  // Emit 64-bit integers unquoted when the value round-trips through a double.
+  // Values that would lose precision stay quoted, so the JSON type of a field
+  // depends on its value.
+  bool unquote_int64 = false;
+};
+
+
 class Context {
 private:
   DescriptorPool m_pool;
@@ -88,7 +114,7 @@ public:
     }
   }
 
-  std::string to_json(const std::string& message_type, const std::string& data) {
+  std::string to_json(const std::string& message_type, const std::string& data, const JsonOptions& options = {}) {
     std::shared_lock lock(m_mutex);
 
     // get descriptor
@@ -123,7 +149,14 @@ public:
 
     std::string out;
 
-    absl::Status status = util::MessageToJsonString(*message, &out);
+    util::JsonPrintOptions print_options;
+    print_options.always_print_fields_with_no_presence = options.include_defaults;
+    print_options.add_whitespace = options.pretty;
+    print_options.preserve_proto_field_names = options.proto_field_names;
+    print_options.always_print_enums_as_ints = options.enums_as_ints;
+    print_options.unquote_int64_if_possible = options.unquote_int64;
+
+    absl::Status status = util::MessageToJsonString(*message, &out, print_options);
 
     if (!status.ok()) {
       throw std::runtime_error("Could not convert message to json");
