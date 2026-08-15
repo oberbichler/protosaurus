@@ -69,7 +69,20 @@ target_link_libraries(
 install(TARGETS protosaurus_ext LIBRARY DESTINATION protosaurus)
 install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/protosaurus/py.typed" DESTINATION protosaurus)
 
-if(NOT CMAKE_CROSSCOMPILING)
+# Stub generation imports the freshly built extension, so it only works when the
+# host can execute the target binaries. CMAKE_CROSSCOMPILING alone is not enough:
+# it stays FALSE when only the architecture differs but the system name does not,
+# which is exactly the case for a macOS x86_64 wheel built on an arm64 runner.
+set(PROTOSAURUS_CAN_RUN_TARGET_BINARIES TRUE)
+
+if(CMAKE_CROSSCOMPILING)
+  set(PROTOSAURUS_CAN_RUN_TARGET_BINARIES FALSE)
+elseif(APPLE AND CMAKE_OSX_ARCHITECTURES
+       AND NOT CMAKE_HOST_SYSTEM_PROCESSOR IN_LIST CMAKE_OSX_ARCHITECTURES)
+  set(PROTOSAURUS_CAN_RUN_TARGET_BINARIES FALSE)
+endif()
+
+if(PROTOSAURUS_CAN_RUN_TARGET_BINARIES)
   nanobind_add_stub(
     protosaurus_ext_stub
     MODULE protosaurus_ext
@@ -79,5 +92,8 @@ if(NOT CMAKE_CROSSCOMPILING)
   )
   install(FILES "${CMAKE_CURRENT_BINARY_DIR}/protosaurus_ext.pyi" DESTINATION protosaurus)
 else()
-  message(STATUS "Cross-compiling: skipping stub generation for protosaurus_ext")
+  # Fall back to the vendored stub so cross-built wheels still ship one. The lint
+  # workflow keeps it byte-identical to the generated file, so it is equivalent.
+  message(STATUS "Cannot run target binaries on this host: using vendored stub for protosaurus_ext")
+  install(FILES "${CMAKE_CURRENT_SOURCE_DIR}/src/protosaurus/protosaurus_ext.pyi" DESTINATION protosaurus)
 endif()
