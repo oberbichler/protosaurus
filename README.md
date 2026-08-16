@@ -112,6 +112,20 @@ print(data)
 | `enums_as_ints`     | Print enum values as numbers instead of their names.                                                                                                                                                                                     |
 | `unquote_int64`     | Print 64-bit integers unquoted when the value round-trips through a double. Values that would lose precision stay quoted, so the JSON type of a field depends on its value.                                                              |
 
+`from_json` accepts one keyword-only option:
+
+| Option | Effect |
+| --- | --- |
+| `ignore_unknown_fields` | Accept JSON fields the schema does not define instead of failing. Useful when a producer has already moved to a newer schema than the one at hand. |
+
+```python
+# fails: the schema has no such field
+ctx.from_json('Animal', '{"name":"Iguanodon","colour":"green"}')
+
+# succeeds, the unknown field is dropped
+ctx.from_json('Animal', '{"name":"Iguanodon","colour":"green"}', ignore_unknown_fields=True)
+```
+
 ### Read varints from the wire format
 
 `read_varint` decodes a single base-128 varint out of a `bytes` object and returns the value together with the position just after it, so consecutive reads need no state of their own:
