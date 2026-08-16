@@ -217,6 +217,16 @@ struct JsonOptions {
 };
 
 
+// Subset of google::protobuf::json::ParseOptions exposed to callers. As with
+// JsonOptions, the default matches ProtoJSON, so a default-constructed
+// ParseOptions parses exactly as JsonStringToMessage does without options.
+struct ParseOptions {
+  // Accept JSON fields the schema does not define instead of failing. Useful
+  // when a producer has already moved to a newer schema than the one at hand.
+  bool ignore_unknown_fields = false;
+};
+
+
 class Context {
 private:
   DescriptorPool m_pool;
@@ -388,7 +398,7 @@ public:
     return out;
   }
 
-  std::string from_json(const std::string& message_type, const std::string& data) {
+  std::string from_json(const std::string& message_type, const std::string& data, const ParseOptions& options = {}) {
     std::shared_lock lock(m_mutex);
 
     // get descriptor
@@ -401,7 +411,10 @@ public:
 
     // parse json
 
-    absl::Status status = util::JsonStringToMessage(data, message.get());
+    util::JsonParseOptions parse_options;
+    parse_options.ignore_unknown_fields = options.ignore_unknown_fields;
+
+    absl::Status status = util::JsonStringToMessage(data, message.get(), parse_options);
 
     if (!status.ok()) {
       throw std::runtime_error("Could not convert json to message type \"" + message_type +

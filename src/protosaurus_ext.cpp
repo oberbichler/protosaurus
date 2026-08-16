@@ -32,11 +32,15 @@ std::string to_json(Context& self, const std::string& message_type, nb::bytes da
   return self.to_json(message_type, data_copy, options);
 }
 
-nb::bytes from_json(Context& self, const std::string& message_type, const std::string& json) {
+nb::bytes from_json(Context& self, const std::string& message_type, const std::string& json,
+                    bool ignore_unknown_fields) {
+  protosaurus::ParseOptions options;
+  options.ignore_unknown_fields = ignore_unknown_fields;
+
   std::string result;
   {
     nb::gil_scoped_release release;
-    result = self.from_json(message_type, json);
+    result = self.from_json(message_type, json, options);
   }
   // GIL re-acquired, safe to create nb::bytes
   return nb::bytes(result.data(), result.size());
@@ -85,7 +89,7 @@ NB_MODULE(protosaurus_ext, m) {
       .def("add_proto", &add_proto, "filename"_a, "content"_a)
       .def("to_json", &to_json, "message_type"_a, "data"_a, nb::kw_only(), "include_defaults"_a = false,
            "pretty"_a = false, "proto_field_names"_a = false, "enums_as_ints"_a = false, "unquote_int64"_a = false)
-      .def("from_json", &from_json, "message_type"_a, "json"_a)
+      .def("from_json", &from_json, "message_type"_a, "json"_a, nb::kw_only(), "ignore_unknown_fields"_a = false)
       .def("message_type_from_index", &message_type_from_index, "filename"_a, "message_index"_a);
 
   // The return type is built dynamically, so nanobind would infer a bare

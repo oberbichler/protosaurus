@@ -176,3 +176,51 @@ def test_options_are_keyword_only(order_ctx):
 
     with pytest.raises(TypeError):
         order_ctx.to_json('Order', data, True)
+
+
+# from_json: ignore_unknown_fields
+
+
+def test_from_json_rejects_unknown_fields_by_default(order_ctx):
+    with pytest.raises(RuntimeError, match='no such field'):
+        order_ctx.from_json('Order', json.dumps({'orderId': '7', 'nope': 1}))
+
+
+def test_ignore_unknown_fields_accepts_them(order_ctx):
+    data = order_ctx.from_json(
+        'Order', json.dumps({'orderId': '7', 'nope': 1}), ignore_unknown_fields=True
+    )
+
+    assert json.loads(order_ctx.to_json('Order', data)) == {'orderId': '7'}
+
+
+def test_ignore_unknown_fields_keeps_the_known_ones(order_ctx):
+    data = order_ctx.from_json(
+        'Order',
+        json.dumps({'orderId': '7', 'customerName': 'ACME', 'nope': 1}),
+        ignore_unknown_fields=True,
+    )
+
+    assert json.loads(order_ctx.to_json('Order', data)) == {
+        'orderId': '7',
+        'customerName': 'ACME',
+    }
+
+
+def test_ignore_unknown_fields_does_not_mask_other_errors(order_ctx):
+    # a malformed value must still be reported even while unknown fields pass
+    with pytest.raises(RuntimeError, match='invalid'):
+        order_ctx.from_json(
+            'Order', json.dumps({'orderId': 'not a number'}), ignore_unknown_fields=True
+        )
+
+
+def test_ignore_unknown_fields_is_keyword_only(order_ctx):
+    with pytest.raises(TypeError):
+        order_ctx.from_json('Order', '{}', True)
+
+
+def test_from_json_roundtrips_with_option_off(order_ctx):
+    data = order_ctx.from_json('Order', json.dumps({'orderId': '7'}))
+
+    assert json.loads(order_ctx.to_json('Order', data)) == {'orderId': '7'}
