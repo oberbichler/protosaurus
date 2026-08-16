@@ -51,6 +51,70 @@ public:
 };
 
 
+// Collects the errors DescriptorPool produces while linking a file. Without a
+// collector, BuildFile writes them to ABSL_LOG(ERROR) and merely returns null,
+// so the reason -- a missing import, a duplicate symbol, an unresolved type --
+// never reaches the caller.
+class PoolErrorCollector : public DescriptorPool::ErrorCollector {
+private:
+  std::string m_errors;
+
+public:
+  void RecordError(absl::string_view filename, absl::string_view element_name, const Message* /*descriptor*/,
+                   ErrorLocation /*location*/, absl::string_view message) override {
+    if (!m_errors.empty()) m_errors += "\n";
+
+    m_errors += std::string(filename);
+
+    if (!element_name.empty()) {
+      m_errors += " (" + std::string(element_name) + ")";
+    }
+
+    m_errors += ": " + std::string(message);
+  }
+
+  void RecordWarning(absl::string_view /*filename*/, absl::string_view /*element_name*/, const Message* /*descriptor*/,
+                     ErrorLocation /*location*/, absl::string_view /*message*/) override {}
+
+  bool has_errors() const { return !m_errors.empty(); }
+  const std::string& errors() const { return m_errors; }
+};
+
+
+// protobuf assembles its status messages from fragments and leaves runs of
+// blanks behind ("invalid JSON in  Animal,  near"). Collapse them so the text
+// reads normally when embedded in an exception.
+inline std::string collapse_spaces(absl::string_view text) {
+  std::string out;
+  out.reserve(text.size());
+
+  bool previous_was_space = false;
+
+  for (const char c : text) {
+    const bool is_space = c == ' ';
+
+    if (is_space && previous_was_space) continue;
+
+    out += c;
+    previous_was_space = is_space;
+  }
+
+  return out;
+}
+
+
+inline std::string join(const std::vector<std::string>& items, const std::string& separator) {
+  std::string out;
+
+  for (std::size_t i = 0; i < items.size(); ++i) {
+    if (i > 0) out += separator;
+    out += items[i];
+  }
+
+  return out;
+}
+
+
 // A base-128 varint holds at most 64 bits in groups of 7, so ten bytes is the
 // longest well-formed encoding. Anything longer is malformed and must be
 // rejected rather than read on indefinitely.
@@ -159,6 +223,84 @@ private:
   DynamicMessageFactory m_factory;
   mutable std::shared_mutex m_mutex;
 
+  // DescriptorPool cannot enumerate what it holds, so remember which files were
+  // built in order to list the available message types in error messages.
+  std::vector<std::string> m_filenames;
+
+  // All of the helpers below expect m_mutex to be held by the caller.
+
+  void collect_message_types(const Descriptor* descriptor, std::vector<std::string>& out) const {
+    out.push_back(std::string(descriptor->full_name()));
+
+    for (int i = 0; i < descriptor->nested_type_count(); ++i) {
+      collect_message_types(descriptor->nested_type(i), out);
+    }
+  }
+
+  std::vector<std::string> known_message_types() const {
+    std::vector<std::string> out;
+
+    for (const std::string& filename : m_filenames) {
+      const FileDescriptor* file = m_pool.FindFileByName(filename);
+
+      if (file == nullptr) continue;
+
+      for (int i = 0; i < file->message_type_count(); ++i) {
+        collect_message_types(file->message_type(i), out);
+      }
+    }
+
+    return out;
+  }
+
+  // The usual cause is a missing package prefix, so name what is available.
+  [[noreturn]] void throw_unknown_message_type(const std::string& message_type) const {
+    std::string msg = "Could not find message type \"" + message_type + "\"";
+
+    const std::vector<std::string> known = known_message_types();
+
+    if (known.empty()) {
+      msg += ". No protos have been added yet";
+    } else {
+      msg += ". Known types: " + join(known, ", ");
+    }
+
+    throw std::runtime_error(msg);
+  }
+
+  const Descriptor* find_message_type(const std::string& message_type) const {
+    const Descriptor* descriptor = m_pool.FindMessageTypeByName(message_type);
+
+    if (descriptor == nullptr) {
+      throw_unknown_message_type(message_type);
+    }
+
+    return descriptor;
+  }
+
+  std::unique_ptr<Message> new_message(const Descriptor* descriptor, const std::string& message_type) {
+    const Message* prototype = m_factory.GetPrototype(descriptor);
+
+    if (prototype == nullptr) {
+      throw std::runtime_error("Could not create a prototype for message type \"" + message_type + "\"");
+    }
+
+    std::unique_ptr<Message> message(prototype->New());
+
+    if (message == nullptr) {
+      throw std::runtime_error("Could not create an empty message of type \"" + message_type + "\"");
+    }
+
+    return message;
+  }
+
+  static void check_initialized(const Message& message, const std::string& message_type) {
+    if (message.IsInitialized()) return;
+
+    throw std::runtime_error("Message of type \"" + message_type +
+                             "\" is missing required fields: " + message.InitializationErrorString());
+  }
+
 public:
   void add_proto(const std::string& filename, const std::string& content) {
     ParserErrorCollector error_collector;
@@ -185,11 +327,21 @@ public:
 
     std::unique_lock lock(m_mutex);
 
-    const FileDescriptor* file_desc = m_pool.BuildFile(file_descriptor_proto);
+    PoolErrorCollector pool_errors;
+
+    const FileDescriptor* file_desc = m_pool.BuildFileCollectingErrors(file_descriptor_proto, &pool_errors);
 
     if (file_desc == nullptr) {
-      throw std::runtime_error("Could not get a file descriptor from .proto");
+      std::string msg = "Could not build \"" + file_descriptor_proto.name() + "\"";
+
+      if (pool_errors.has_errors()) {
+        msg += ":\n" + pool_errors.errors();
+      }
+
+      throw std::runtime_error(msg);
     }
+
+    m_filenames.push_back(std::string(file_desc->name()));
   }
 
   std::string to_json(const std::string& message_type, const std::string& data, const JsonOptions& options = {}) {
@@ -197,31 +349,23 @@ public:
 
     // get descriptor
 
-    const Descriptor* descriptor = m_pool.FindMessageTypeByName(message_type);
-
-    if (descriptor == nullptr) {
-      throw std::runtime_error("Could not find descriptor for message type \"" + message_type + "\"");
-    }
+    const Descriptor* descriptor = find_message_type(message_type);
 
     // generate prototype message
 
-    const Message* prototype = m_factory.GetPrototype(descriptor);
-
-    if (prototype == nullptr) {
-      throw std::runtime_error("Could not create prototype");
-    }
+    std::unique_ptr<Message> message = new_message(descriptor, message_type);
 
     // parse data
+    //
+    // Parse partially first: a plain ParseFromArray also fails on a well-formed
+    // message that merely lacks required fields, and cannot tell the two apart.
 
-    std::unique_ptr<Message> message(prototype->New());
-
-    if (message == nullptr) {
-      throw std::runtime_error("Could not create empty message from prototype");
+    if (!message->ParsePartialFromArray(data.data(), static_cast<int>(data.size()))) {
+      throw std::runtime_error("Could not parse " + std::to_string(data.size()) + " bytes as message type \"" +
+                               message_type + "\": the data is not valid protobuf wire format");
     }
 
-    if (!message->ParseFromArray(data.data(), static_cast<int>(data.size()))) {
-      throw std::runtime_error("Could not parse value in buffer");
-    }
+    check_initialized(*message, message_type);
 
     // write json
 
@@ -237,7 +381,8 @@ public:
     absl::Status status = util::MessageToJsonString(*message, &out, print_options);
 
     if (!status.ok()) {
-      throw std::runtime_error("Could not convert message to json");
+      throw std::runtime_error("Could not convert message of type \"" + message_type +
+                               "\" to json: " + collapse_spaces(status.message()));
     }
 
     return out;
@@ -248,40 +393,30 @@ public:
 
     // get descriptor
 
-    const Descriptor* descriptor = m_pool.FindMessageTypeByName(message_type);
-
-    if (descriptor == nullptr) {
-      throw std::runtime_error("Could not find descriptor for message type \"" + message_type + "\"");
-    }
+    const Descriptor* descriptor = find_message_type(message_type);
 
     // generate prototype message
 
-    const Message* prototype = m_factory.GetPrototype(descriptor);
-
-    if (prototype == nullptr) {
-      throw std::runtime_error("Could not create prototype");
-    }
-
-    // parse data
-
-    std::unique_ptr<Message> message(prototype->New());
-
-    if (message == nullptr) {
-      throw std::runtime_error("Could not create empty message from prototype");
-    }
+    std::unique_ptr<Message> message = new_message(descriptor, message_type);
 
     // parse json
 
     absl::Status status = util::JsonStringToMessage(data, message.get());
 
     if (!status.ok()) {
-      throw std::runtime_error("Could not convert json to message");
+      throw std::runtime_error("Could not convert json to message type \"" + message_type +
+                               "\": " + collapse_spaces(status.message()));
     }
+
+    // Checked before serializing, not after: SerializeToString happily emits a
+    // proto2 message that is missing required fields, which would hand the
+    // caller bytes that to_json then refuses to read back.
+    check_initialized(*message, message_type);
 
     std::string out;
 
     if (!message->SerializeToString(&out)) {
-      throw std::runtime_error("Could not serialize message");
+      throw std::runtime_error("Could not serialize message of type \"" + message_type + "\"");
     }
 
     return out;
@@ -289,7 +424,7 @@ public:
 
   std::string message_type_from_index(const std::string& filename, const std::vector<int>& message_index) {
     if (message_index.empty()) {
-      throw std::runtime_error("Message index is empty");
+      throw std::runtime_error("Message index is empty for file \"" + filename + "\"");
     }
 
     std::shared_lock lock(m_mutex);
@@ -297,13 +432,23 @@ public:
     const FileDescriptor* file_descriptor = m_pool.FindFileByName(filename);
 
     if (file_descriptor == nullptr) {
-      throw std::runtime_error("Could not find file descriptor");
+      std::string msg = "Could not find file \"" + filename + "\"";
+
+      if (m_filenames.empty()) {
+        msg += ". No protos have been added yet";
+      } else {
+        msg += ". Known files: " + join(m_filenames, ", ");
+      }
+
+      throw std::runtime_error(msg);
     }
 
     auto it = message_index.begin();
 
     if (*it < 0 || file_descriptor->message_type_count() <= *it) {
-      throw std::runtime_error("Index out of range at position 0");
+      throw std::runtime_error("Message index " + std::to_string(*it) + " at position 0 is out of range: file \"" +
+                               filename + "\" defines " + std::to_string(file_descriptor->message_type_count()) +
+                               " top-level message(s)");
     }
 
     auto* descriptor = file_descriptor->message_type(*it);
@@ -311,7 +456,9 @@ public:
     while (++it != message_index.end()) {
       if (*it < 0 || descriptor->nested_type_count() <= *it) {
         auto position = std::distance(message_index.begin(), it);
-        throw std::runtime_error("Index out of range at position " + std::to_string(position));
+        throw std::runtime_error("Message index " + std::to_string(*it) + " at position " + std::to_string(position) +
+                                 " is out of range: \"" + std::string(descriptor->full_name()) + "\" has " +
+                                 std::to_string(descriptor->nested_type_count()) + " nested message(s)");
       }
 
       descriptor = descriptor->nested_type(*it);
