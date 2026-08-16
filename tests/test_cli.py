@@ -1,117 +1,74 @@
 import json
 import struct
-from io import BytesIO
 
 import pytest
 from click.testing import CliRunner
 
 from protosaurus import cli
-from protosaurus.cli import (
-    _format_record,
-    _read_byte,
-    _read_index_array,
-    _read_varint,
-    main,
-)
+from protosaurus.cli import _format_record, _read_index_array, main
 
 if __name__ == "__main__":
     pytest.main()
 
 
-# --- _read_byte ---
-
-
-def test_read_byte():
-    buf = BytesIO(b"\x42")
-    assert _read_byte(buf) == 0x42
-
-
-def test_read_byte_eof():
-    buf = BytesIO(b"")
-    with pytest.raises(EOFError, match="Unexpected EOF encountered"):
-        _read_byte(buf)
-
-
-# --- _read_varint (zigzag-encoded) ---
-
-
-def test_read_varint_zero():
-    # zigzag(0) = 0 -> varint byte 0x00
-    buf = BytesIO(b"\x00")
-    assert _read_varint(buf) == 0
-
-
-def test_read_varint_positive():
-    # zigzag(1) = 2 -> varint byte 0x02
-    buf = BytesIO(b"\x02")
-    assert _read_varint(buf) == 1
-
-
-def test_read_varint_negative():
-    # zigzag(-1) = 1 -> varint byte 0x01
-    buf = BytesIO(b"\x01")
-    assert _read_varint(buf) == -1
-
-
-def test_read_varint_larger_positive():
-    # zigzag(150) = 300 -> varint bytes 0xAC, 0x02
-    buf = BytesIO(b"\xac\x02")
-    assert _read_varint(buf) == 150
-
-
-def test_read_varint_larger_negative():
-    # zigzag(-150) = 299 -> varint bytes 0xAB, 0x02
-    buf = BytesIO(b"\xab\x02")
-    assert _read_varint(buf) == -150
-
-
-def test_read_varint_eof():
-    # multi-byte varint truncated: high bit set but no continuation
-    buf = BytesIO(b"\x80")
-    with pytest.raises(EOFError, match="Unexpected EOF while reading index"):
-        _read_varint(buf)
-
-
-def test_read_varint_max_length_is_accepted():
-    # 10 bytes is the maximum length of a varint64
-    buf = BytesIO(b"\xff" * 9 + b"\x01")
-    assert _read_varint(buf) == -9223372036854775808
-
-
-def test_read_varint_too_long():
-    # 11 continuation bytes must be rejected instead of read indefinitely
-    buf = BytesIO(b"\x80" * 11 + b"\x01")
-    with pytest.raises(RuntimeError, match="Varint is too long"):
-        _read_varint(buf)
-
-
 # --- _read_index_array ---
+#
+# The varint decoding itself now lives in the extension and is covered by
+# tests/test_varint.py. What is left here is the index-array framing on top of it.
 
 
 def test_read_index_array_size_zero():
     # size=0 (zigzag(0)=0, varint byte 0x00) -> returns [0]
-    buf = BytesIO(b"\x00")
-    assert _read_index_array(buf) == [0]
+    assert _read_index_array(b"\x00", 0) == ([0], 1)
 
 
 def test_read_index_array_single_element():
     # size=1 (zigzag(1)=2, varint 0x02), element=3 (zigzag(3)=6, varint 0x06)
-    buf = BytesIO(b"\x02\x06")
-    assert _read_index_array(buf) == [3]
+    assert _read_index_array(b"\x02\x06", 0) == ([3], 2)
 
 
 def test_read_index_array_multiple_elements():
     # size=3 (zigzag(3)=6, varint 0x06)
     # elements: 0 (0x00), 1 (0x02), 2 (0x04)
-    buf = BytesIO(b"\x06\x00\x02\x04")
-    assert _read_index_array(buf) == [0, 1, 2]
+    assert _read_index_array(b"\x06\x00\x02\x04", 0) == ([0, 1, 2], 4)
+
+
+def test_read_index_array_reads_at_the_given_offset():
+    assert _read_index_array(b"\xff\xff\x02\x06", 2) == ([3], 4)
+
+
+def test_read_index_array_returned_offset_points_past_the_index():
+    data = b"\x02\x06payload"
+
+    index, offset = _read_index_array(data, 0)
+
+    assert index == [3]
+    assert data[offset:] == b"payload"
 
 
 def test_read_index_array_negative_size():
     # size=-1 (zigzag(-1)=1, varint 0x01) -> RuntimeError
-    buf = BytesIO(b"\x01")
     with pytest.raises(RuntimeError, match="Invalid Protobuf message_index array length"):
-        _read_index_array(buf)
+        _read_index_array(b"\x01", 0)
+
+
+def test_read_index_array_implausible_size():
+    # size=200000 (zigzag -> 400000) must be rejected before allocating
+    size = 400000
+    encoded = bytearray()
+    while size >= 0x80:
+        encoded.append((size & 0x7F) | 0x80)
+        size >>= 7
+    encoded.append(size)
+
+    with pytest.raises(RuntimeError, match="Invalid Protobuf message_index array length"):
+        _read_index_array(bytes(encoded), 0)
+
+
+def test_read_index_array_truncated_raises_eof():
+    # announces three elements but only provides one
+    with pytest.raises(EOFError):
+        _read_index_array(b"\x06\x00", 0)
 
 
 # --- _format_record ---

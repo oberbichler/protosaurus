@@ -1,11 +1,10 @@
 import json
 import struct
-from io import BytesIO
 
 import click
 import requests
 
-from protosaurus import Context
+from protosaurus import Context, read_varint
 
 # utility: compile protos from schema-registry
 
@@ -73,45 +72,25 @@ def _get_schema(url, name, subject, version, ctx, verify_ssl=True):
 # utility: read message
 
 
-def _read_byte(buffer):
-    byte = buffer.read(1)
-    if byte == b"":
-        raise EOFError("Unexpected EOF encountered")
-    return ord(byte)
+# The message index is a zigzag-encoded varint array, so read_varint is called
+# with zigzag=True here. Returns the index together with the offset just after
+# it, so the caller can slice off the message that follows.
+def _read_index_array(data, offset):
+    size, offset = read_varint(data, offset, zigzag=True)
 
-
-_MAX_VARINT_BYTES = 10
-
-
-def _read_varint(buffer):
-    value = 0
-    shift = 0
-    try:
-        for _ in range(_MAX_VARINT_BYTES):
-            i = _read_byte(buffer)
-            value |= (i & 0x7F) << shift
-            shift += 7
-            if not (i & 0x80):
-                return (value >> 1) ^ -(value & 1)
-    except EOFError:
-        raise EOFError("Unexpected EOF while reading index") from None
-
-    raise RuntimeError(f"Varint is too long (more than {_MAX_VARINT_BYTES} bytes)")
-
-
-def _read_index_array(buffer):
-    size = _read_varint(buffer)
     if size < 0 or size > 100000:
         raise RuntimeError("Invalid Protobuf message_index array length")
 
     if size == 0:
-        return [0]
+        return [0], offset
 
     msg_index = []
-    for _ in range(size):
-        msg_index.append(_read_varint(buffer))
 
-    return msg_index
+    for _ in range(size):
+        value, offset = read_varint(data, offset, zigzag=True)
+        msg_index.append(value)
+
+    return msg_index, offset
 
 
 # utility: format output record
@@ -184,22 +163,23 @@ def main(
             break
 
         (raw_length,) = struct.unpack(">I", raw_length_bytes)
-        raw_buffer = BytesIO(file.read(raw_length))
+        raw = file.read(raw_length)
 
         # read header
 
-        magic_byte, schema_id = struct.unpack(">bI", raw_buffer.read(5))
+        magic_byte, schema_id = struct.unpack_from(">bI", raw, 0)
 
         if magic_byte != 0:
             raise RuntimeError(f"Incorrect magic byte ({magic_byte}).")
 
-        message_index = _read_index_array(raw_buffer)
+        # Not named `offset`: that already holds the Kafka record offset here.
+        message_index, message_start = _read_index_array(raw, 5)
 
         # compile protos form schema-registry
 
         proto_ctx = _get_schema_by_id(schema_registry, schema_id, verify_ssl)
 
-        message_buffer = raw_buffer.read()
+        message_buffer = raw[message_start:]
 
         message_type = proto_ctx.message_type_from_index("<<<MAIN>>>", message_index)
 
