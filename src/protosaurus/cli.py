@@ -115,7 +115,10 @@ def _format_record(offset: str, key: str, message_json: str, pretty: bool = Fals
 @click.command()
 @click.argument("file", type=click.File("rb"))
 @click.option(
-    "--schema-registry", type=str, help="The URL of the Schema Registry cluster."
+    "--schema-registry",
+    type=str,
+    required=True,
+    help="The URL of the Schema Registry cluster.",
 )
 @click.option(
     "--no-verify",

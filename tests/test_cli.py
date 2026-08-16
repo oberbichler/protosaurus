@@ -212,3 +212,13 @@ def test_cli_record_metadata_survives_options(order_cli):
 
     assert record["@offset"] == 42
     assert record["@key"] == "user-1"
+
+
+def test_cli_without_schema_registry_reports_the_missing_option(tmp_path):
+    path = tmp_path / "records.bin"
+    path.write_bytes(b"")
+
+    result = CliRunner().invoke(main, [str(path)])
+
+    assert result.exit_code == 2
+    assert "--schema-registry" in result.output
