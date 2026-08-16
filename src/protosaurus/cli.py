@@ -1,5 +1,6 @@
 import json
 import struct
+from typing import BinaryIO
 
 import click
 import requests
@@ -8,11 +9,11 @@ from protosaurus import Context, read_varint
 
 # utility: compile protos from schema-registry
 
-_schema_cache = {}
-_session = None
+_schema_cache: dict[int, Context] = {}
+_session: requests.Session | None = None
 
 
-def _get_session(verify_ssl):
+def _get_session(verify_ssl: bool) -> requests.Session:
     global _session
     if _session is None:
         _session = requests.Session()
@@ -20,7 +21,7 @@ def _get_session(verify_ssl):
     return _session
 
 
-def _get_schema_by_id(url, id, verify_ssl=True):
+def _get_schema_by_id(url: str, id: int, verify_ssl: bool = True) -> Context:
     ctx = _schema_cache.get(id)
 
     if ctx is not None:
@@ -50,7 +51,14 @@ def _get_schema_by_id(url, id, verify_ssl=True):
     return ctx
 
 
-def _get_schema(url, name, subject, version, ctx, verify_ssl=True):
+def _get_schema(
+    url: str,
+    name: str,
+    subject: str,
+    version: int,
+    ctx: Context,
+    verify_ssl: bool = True,
+) -> None:
     session = _get_session(verify_ssl)
     response = session.get(f"{url}/subjects/{subject}/versions/{version}")
     response.raise_for_status()
@@ -75,7 +83,7 @@ def _get_schema(url, name, subject, version, ctx, verify_ssl=True):
 # The message index is a zigzag-encoded varint array, so read_varint is called
 # with zigzag=True here. Returns the index together with the offset just after
 # it, so the caller can slice off the message that follows.
-def _read_index_array(data, offset):
+def _read_index_array(data: bytes, offset: int) -> tuple[list[int], int]:
     size, offset = read_varint(data, offset, zigzag=True)
 
     if size < 0 or size > 100000:
@@ -84,7 +92,7 @@ def _read_index_array(data, offset):
     if size == 0:
         return [0], offset
 
-    msg_index = []
+    msg_index: list[int] = []
 
     for _ in range(size):
         value, offset = read_varint(data, offset, zigzag=True)
@@ -96,8 +104,8 @@ def _read_index_array(data, offset):
 # utility: format output record
 
 
-def _format_record(offset, key, message_json, pretty=False):
-    record = {"@offset": int(offset), "@key": key}
+def _format_record(offset: str, key: str, message_json: str, pretty: bool = False) -> str:
+    record: dict[str, object] = {"@offset": int(offset), "@key": key}
     record.update(json.loads(message_json))
     # The record wraps the message in @offset/@key and is re-serialised here, so
     # indentation has to be applied at this step rather than by to_json.
@@ -141,15 +149,15 @@ def _format_record(offset, key, message_json, pretty=False):
     help="Print 64-bit integers unquoted when the value fits a double exactly.",
 )
 def main(
-    file,
-    schema_registry,
-    no_verify,
-    defaults,
-    pretty,
-    proto_field_names,
-    enums_as_ints,
-    unquote_int64,
-):
+    file: BinaryIO,
+    schema_registry: str,
+    no_verify: bool,
+    defaults: bool,
+    pretty: bool,
+    proto_field_names: bool,
+    enums_as_ints: bool,
+    unquote_int64: bool,
+) -> None:
     verify_ssl = not no_verify
     while True:
         offset = file.readline().decode("utf-8")[:-1]
