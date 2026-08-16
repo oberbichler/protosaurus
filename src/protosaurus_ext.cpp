@@ -81,20 +81,97 @@ std::string message_type_from_index(Context& self, const std::string& filename, 
   return self.message_type_from_index(filename, message_index);
 }
 
+// Docstrings, kept out of the binding block below so that it stays readable.
+// nanobind puts each one after the signature it generates, and
+// nanobind_add_stub copies both into protosaurus_ext.pyi -- which is what an
+// editor reads for completion and hover text. They are written flush left
+// because the stub generator dedents them.
+
+constexpr const char* CONTEXT_DOC = R"doc(
+A pool of .proto schemas for converting messages between the protobuf wire
+format and JSON.
+
+The pool is thread-safe: add_proto takes an exclusive lock and the conversions
+a shared one, so a single context can be shared across threads.
+)doc";
+
+constexpr const char* ADD_PROTO_DOC = R"doc(
+Parse a .proto definition and add it to the pool.
+
+`filename` is the name the file is registered under: other protos import it by
+that name, and message_type_from_index looks it up by it. A proto may import
+any file added before it.
+
+Raises RuntimeError if the content does not parse or does not link, with the
+parser or linker diagnostics appended.
+)doc";
+
+constexpr const char* TO_JSON_DOC = R"doc(
+Decode `data` from the protobuf wire format and return it as a JSON string.
+
+`message_type` is the fully qualified name, so "zoo.Animal" for a message in
+`package zoo`. With no options set, the output is plain ProtoJSON.
+
+Raises RuntimeError if the type is unknown -- the message then lists the known
+types -- if the data is not valid wire format, or if a proto2 message is
+missing required fields.
+)doc";
+
+constexpr const char* FROM_JSON_DOC = R"doc(
+Encode the JSON document `json` as a protobuf message and return the wire
+format bytes.
+
+`message_type` is the fully qualified name, so "zoo.Animal" for a message in
+`package zoo`. Pass ignore_unknown_fields=True to drop JSON fields the schema
+does not define instead of failing on them.
+
+Raises RuntimeError if the type is unknown, if the JSON does not match the
+schema, or if required fields are missing.
+)doc";
+
+constexpr const char* MESSAGE_TYPE_FROM_INDEX_DOC = R"doc(
+Resolve a Confluent message index to a fully qualified message type.
+
+The index addresses a message by position instead of by name: the first entry
+selects a top-level message of `filename`, every further entry a message nested
+inside the previous one. [0] is therefore the first message in the file.
+
+Raises RuntimeError for an unknown file, an empty index, or an entry outside
+the range of messages it addresses.
+)doc";
+
+constexpr const char* READ_VARINT_DOC = R"doc(
+Read one base-128 varint from `data`, starting at `offset`.
+
+Returns the decoded value together with the position just after it, so
+consecutive reads need no state of their own.
+
+Set zigzag=True for the sint32/sint64 encoding, which maps signed values onto
+unsigned ones. Field tags, lengths, int32, int64, uint64, bool and enums are
+not zigzag encoded, so the default is off.
+
+Raises EOFError if the data ends mid-varint, RuntimeError for a varint longer
+than ten bytes, and IndexError for a negative offset or one past the end.
+)doc";
+
 }  // namespace
 
 NB_MODULE(protosaurus_ext, m) {
-  nb::class_<Context>(m, "Context")
+  nb::class_<Context>(m, "Context", CONTEXT_DOC)
       .def(nb::init<>())
-      .def("add_proto", &add_proto, "filename"_a, "content"_a)
+      .def("add_proto", &add_proto, "filename"_a, "content"_a, ADD_PROTO_DOC)
       .def("to_json", &to_json, "message_type"_a, "data"_a, nb::kw_only(), "include_defaults"_a = false,
-           "pretty"_a = false, "proto_field_names"_a = false, "enums_as_ints"_a = false, "unquote_int64"_a = false)
-      .def("from_json", &from_json, "message_type"_a, "json"_a, nb::kw_only(), "ignore_unknown_fields"_a = false)
-      .def("message_type_from_index", &message_type_from_index, "filename"_a, "message_index"_a);
+           "pretty"_a = false, "proto_field_names"_a = false, "enums_as_ints"_a = false, "unquote_int64"_a = false,
+           TO_JSON_DOC)
+      .def("from_json", &from_json, "message_type"_a, "json"_a, nb::kw_only(), "ignore_unknown_fields"_a = false,
+           FROM_JSON_DOC)
+      .def("message_type_from_index", &message_type_from_index, "filename"_a, "message_index"_a,
+           MESSAGE_TYPE_FROM_INDEX_DOC);
 
   // The return type is built dynamically, so nanobind would infer a bare
   // `object`. Spell the signature out instead, for the stub and the docstring.
   m.def("read_varint", &read_varint, "data"_a, "offset"_a = 0, nb::kw_only(), "zigzag"_a = false,
         nb::sig("def read_varint(data: bytes, offset: int = 0, *, zigzag: bool = False) -> "
-                "tuple[int, int]"));
+                "tuple[int, int]"),
+        READ_VARINT_DOC);
 }
