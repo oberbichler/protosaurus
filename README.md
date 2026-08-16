@@ -112,6 +112,28 @@ print(data)
 | `enums_as_ints`     | Print enum values as numbers instead of their names.                                                                                                                                                                                     |
 | `unquote_int64`     | Print 64-bit integers unquoted when the value round-trips through a double. Values that would lose precision stay quoted, so the JSON type of a field depends on its value.                                                              |
 
+### Read varints from the wire format
+
+`read_varint` decodes a single base-128 varint out of a `bytes` object and returns the value together with the position just after it, so consecutive reads need no state of their own:
+
+```python
+from protosaurus import read_varint
+
+data = b'\xac\x02\x08'
+
+value, offset = read_varint(data)          # (300, 2)
+value, offset = read_varint(data, offset)  # (8, 3)
+```
+
+Pass `zigzag=True` for the `sint32`/`sint64` encoding, which maps signed values onto unsigned ones. Field tags, lengths, `int32`, `int64`, `uint64`, `bool` and enums are **not** zigzag encoded, so the default is off:
+
+```python
+read_varint(b'\xac\x02')                # (300, 2)
+read_varint(b'\xac\x02', zigzag=True)   # (150, 2)
+```
+
+Malformed input is rejected rather than read on indefinitely: data ending mid-varint raises `EOFError`, more than ten bytes raises `RuntimeError`, and an offset past the end raises `IndexError`.
+
 ### Deserialize Protobuf from Kafka using a schema registry
 
 Protosaurus also ships a CLI that can deserialize Protobuf messages from Kafka automatically when a schema registry is available:
