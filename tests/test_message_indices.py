@@ -62,16 +62,16 @@ def test_index_out_of_range_raises(ctx):
     }
     """)
 
-    with pytest.raises(RuntimeError, match='Index out of range at position 0'):
+    with pytest.raises(RuntimeError, match='at position 0 is out of range'):
         ctx.message_type_from_index('test', [-1])
 
-    with pytest.raises(RuntimeError, match='Index out of range at position 0'):
+    with pytest.raises(RuntimeError, match='at position 0 is out of range'):
         ctx.message_type_from_index('test', [99])
 
-    with pytest.raises(RuntimeError, match='Index out of range at position 1'):
+    with pytest.raises(RuntimeError, match='at position 1 is out of range'):
         ctx.message_type_from_index('test', [0, -1])
 
-    with pytest.raises(RuntimeError, match='Index out of range at position 1'):
+    with pytest.raises(RuntimeError, match='at position 1 is out of range'):
         ctx.message_type_from_index('test', [0, 2])
 
 
@@ -99,5 +99,5 @@ def test_invalid_filename_raises(ctx):
     }
     """)
 
-    with pytest.raises(RuntimeError, match='Could not find file descriptor'):
+    with pytest.raises(RuntimeError, match='Could not find file "nonexistent"'):
         ctx.message_type_from_index('nonexistent', [0])
