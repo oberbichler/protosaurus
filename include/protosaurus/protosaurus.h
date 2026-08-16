@@ -8,11 +8,13 @@
 #include <google/protobuf/message.h>                   // Message
 #include <google/protobuf/util/json_util.h>            // MessageToJsonString, JsonStringToMessage
 
+#include <cstdint>       // uint64_t, int64_t, uint8_t
 #include <memory>        // unique_ptr
 #include <mutex>         // unique_lock
 #include <shared_mutex>  // shared_mutex, shared_lock
-#include <stdexcept>     // runtime_error
+#include <stdexcept>     // runtime_error, out_of_range
 #include <string>        // string
+#include <string_view>   // string_view
 #include <vector>        // vector
 
 namespace protosaurus {
@@ -47,6 +49,82 @@ public:
   bool has_errors() const { return !m_errors.empty(); }
   const std::string& errors() const { return m_errors; }
 };
+
+
+// A base-128 varint holds at most 64 bits in groups of 7, so ten bytes is the
+// longest well-formed encoding. Anything longer is malformed and must be
+// rejected rather than read on indefinitely.
+inline constexpr std::size_t MAX_VARINT_BYTES = 10;
+
+
+// The data ended in the middle of a varint.
+class VarintTruncated : public std::runtime_error {
+public:
+  VarintTruncated() : std::runtime_error("Unexpected end of data while reading varint") {}
+};
+
+
+// More continuation bytes than a 64-bit value can hold.
+class VarintTooLong : public std::runtime_error {
+public:
+  VarintTooLong()
+      : std::runtime_error("Varint is too long (more than " + std::to_string(MAX_VARINT_BYTES) + " bytes)") {}
+};
+
+
+// The starting offset is not inside the data.
+class VarintOffsetOutOfRange : public std::out_of_range {
+public:
+  VarintOffsetOutOfRange() : std::out_of_range("offset is past the end of the data") {}
+};
+
+
+struct Varint {
+  // The decoded bits, before any zigzag interpretation.
+  std::uint64_t value;
+  // Position just after the varint, so the next read can continue from here.
+  std::size_t offset;
+};
+
+
+// Reads one base-128 varint starting at `offset`.
+inline Varint read_varint(std::string_view data, std::size_t offset) {
+  if (offset > data.size()) {
+    throw VarintOffsetOutOfRange();
+  }
+
+  std::uint64_t value = 0;
+  unsigned shift = 0;
+
+  for (std::size_t i = 0; i < MAX_VARINT_BYTES; ++i) {
+    if (offset >= data.size()) {
+      throw VarintTruncated();
+    }
+
+    const auto byte = static_cast<std::uint8_t>(data[offset++]);
+
+    value |= static_cast<std::uint64_t>(byte & 0x7F) << shift;
+    shift += 7;
+
+    // The high bit clear marks the last byte of the varint.
+    if ((byte & 0x80) == 0) {
+      return {value, offset};
+    }
+  }
+
+  throw VarintTooLong();
+}
+
+
+// Protobuf's sint32/sint64 encoding maps signed values onto unsigned ones so
+// that small magnitudes stay short. Only those two types use it; plain int32,
+// int64, lengths and field tags are not zigzag encoded.
+inline std::int64_t zigzag_decode(std::uint64_t value) {
+  // Unary minus on an unsigned type is well defined and yields either all zero
+  // bits or all one bits, which is exactly the mask the decoding needs.
+  const std::uint64_t mask = std::uint64_t{0} - (value & 1);
+  return static_cast<std::int64_t>((value >> 1) ^ mask);
+}
 
 
 // Subset of google::protobuf::json::PrintOptions exposed to callers. Every option
