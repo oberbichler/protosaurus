@@ -25,6 +25,7 @@ dependencies = ["click >= 8.1", "requests >= 2.31"]
 [project.optional-dependencies]
 test = ["pytest >=6.0", "deepdiff"]
 lint = ["ruff >=0.16", "ty >=0.0.65"]
+arrow = ["pyarrow >=14"]
 
 [project.scripts]
 protosaurus = "protosaurus.cli:main"
