@@ -81,6 +81,77 @@ std::string message_type_from_index(Context& self, const std::string& filename, 
   return self.message_type_from_index(filename, message_index);
 }
 
+nb::dict field_to_dict(const protosaurus::FieldInfo& field) {
+  nb::dict d;
+  d["name"] = field.name;
+  d["json_name"] = field.json_name;
+  d["number"] = field.number;
+  d["type"] = field.type;
+  d["label"] = field.label;
+  d["has_presence"] = field.has_presence;
+
+  if (field.oneof) {
+    d["oneof"] = *field.oneof;
+  } else {
+    d["oneof"] = nb::none();
+  }
+
+  if (field.type_name) d["type_name"] = *field.type_name;
+  if (field.key_type) d["key_type"] = *field.key_type;
+  if (field.value_type) d["value_type"] = *field.value_type;
+  if (field.value_type_name) d["value_type_name"] = *field.value_type_name;
+
+  if (!field.enum_values.empty()) {
+    nb::list values;
+    for (const auto& value : field.enum_values) {
+      nb::dict v;
+      v["name"] = value.name;
+      v["number"] = value.number;
+      values.append(v);
+    }
+    d["enum_values"] = values;
+  }
+
+  return d;
+}
+
+nb::dict describe(Context& self, const std::string& type_name) {
+  protosaurus::DescribeResult result;
+  {
+    nb::gil_scoped_release release;
+    result = self.describe(type_name);
+  }
+
+  nb::dict out;
+
+  if (result.is_enum) {
+    out["name"] = result.enum_info.name;
+    out["kind"] = "enum";
+
+    nb::list values;
+    for (const auto& value : result.enum_info.values) {
+      nb::dict v;
+      v["name"] = value.name;
+      v["number"] = value.number;
+      values.append(v);
+    }
+    out["values"] = values;
+
+    return out;
+  }
+
+  out["name"] = result.message.name;
+  out["kind"] = "message";
+
+  nb::list fields;
+  for (const auto& field_info : result.message.fields) {
+    fields.append(field_to_dict(field_info));
+  }
+  out["fields"] = fields;
+
+  return out;
+}
+
 // Docstrings, kept out of the binding block below so that it stays readable.
 // nanobind puts each one after the signature it generates, and
 // nanobind_add_stub copies both into protosaurus_ext.pyi -- which is what an
@@ -140,6 +211,23 @@ Raises RuntimeError for an unknown file, an empty index, or an entry outside
 the range of messages it addresses.
 )doc";
 
+constexpr const char* DESCRIBE_DOC = R"doc(
+Describe a message or enum type's shape.
+
+`type_name` is a fully qualified message or enum name, resolved the same way
+`to_json`'s `message_type` argument is. For a message, the result is
+{"name", "kind": "message", "fields": [...]}, where every field has at least
+name, json_name, number, type, label, has_presence and oneof, plus
+type_name/enum_values/key_type/value_type/value_type_name where relevant.
+For an enum, the result is {"name", "kind": "enum", "values": [...]}.
+
+Nested message and enum types are referenced by name only, one level per
+call -- call describe again to resolve them further.
+
+Raises RuntimeError if neither a message nor an enum type of that name is
+known, with a listing of known message and enum types.
+)doc";
+
 constexpr const char* READ_VARINT_DOC = R"doc(
 Read one base-128 varint from `data`, starting at `offset`.
 
@@ -166,7 +254,8 @@ NB_MODULE(protosaurus_ext, m) {
       .def("from_json", &from_json, "message_type"_a, "json"_a, nb::kw_only(), "ignore_unknown_fields"_a = false,
            FROM_JSON_DOC)
       .def("message_type_from_index", &message_type_from_index, "filename"_a, "message_index"_a,
-           MESSAGE_TYPE_FROM_INDEX_DOC);
+           MESSAGE_TYPE_FROM_INDEX_DOC)
+      .def("describe", &describe, "type_name"_a, DESCRIBE_DOC);
 
   // The return type is built dynamically, so nanobind would infer a bare
   // `object`. Spell the signature out instead, for the stub and the docstring.
