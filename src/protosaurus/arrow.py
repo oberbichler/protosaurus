@@ -67,8 +67,14 @@ def _arrow_type(
 ) -> pa.DataType | None:
     kind = field['type']
 
+    if kind == 'map':
+        return _map_type(ctx, field, path, max_depth)
+
     if kind in ('message', 'group'):
         return _message_type(ctx, field['type_name'], path, max_depth)
+
+    if kind == 'enum':
+        return pa.dictionary(pa.int32(), pa.string())
 
     return _SCALAR_ARROW_TYPES[kind]
 
@@ -91,3 +97,29 @@ def _message_type(
 
     fields = _struct_fields(ctx, type_name, (*path, type_name), max_depth)
     return pa.struct(fields)
+
+
+def _map_type(
+    ctx: Context, field: dict, path: tuple[str, ...], max_depth: int | None
+) -> pa.MapType | None:
+    key_type = _SCALAR_ARROW_TYPES[field['key_type']]
+    value_type = _value_type(ctx, field, path, max_depth)
+
+    if value_type is None:
+        return None
+
+    return pa.map_(key_type, value_type)
+
+
+def _value_type(
+    ctx: Context, field: dict, path: tuple[str, ...], max_depth: int | None
+) -> pa.DataType | None:
+    value_kind = field['value_type']
+
+    if value_kind == 'message':
+        return _message_type(ctx, field['value_type_name'], path, max_depth)
+
+    if value_kind == 'enum':
+        return pa.dictionary(pa.int32(), pa.string())
+
+    return _SCALAR_ARROW_TYPES[value_kind]

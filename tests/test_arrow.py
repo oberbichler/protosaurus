@@ -173,3 +173,87 @@ def test_max_depth_also_cuts_non_cyclic_nesting(ctx):
     b_type = arrow_field(schema, 'b').type
     assert pa.types.is_struct(b_type)
     assert b_type.names == []  # C would be depth 2, dropped
+
+
+_FULL_ZOO_PROTO = """
+    syntax = "proto3";
+    package fullzoo;
+
+    message Animal {
+        string name = 1;
+        Diet diet = 2;
+        repeated string tags = 3;
+        map<string, string> attributes = 4;
+        map<string, Person> friends = 5;
+
+        oneof location {
+            int32 cage_id = 6;
+            int32 zone_id = 7;
+        }
+    }
+
+    message Person {
+        string name = 1;
+    }
+
+    enum Diet {
+        CARNIVOROUS = 0;
+        HERBIVOROUS = 1;
+    }
+    """
+
+
+@pytest.fixture
+def full_zoo_ctx(ctx):
+    ctx.add_proto('fullzoo', _FULL_ZOO_PROTO)
+    return ctx
+
+
+def test_enum_field_becomes_dictionary(full_zoo_ctx):
+    schema = derive_schema(full_zoo_ctx, 'fullzoo.Animal')
+
+    diet_type = arrow_field(schema, 'diet').type
+
+    assert pa.types.is_dictionary(diet_type)
+    assert diet_type.index_type == pa.int32()
+    assert diet_type.value_type == pa.string()
+
+
+def test_repeated_scalar_becomes_non_nullable_list(full_zoo_ctx):
+    schema = derive_schema(full_zoo_ctx, 'fullzoo.Animal')
+
+    tags_field = arrow_field(schema, 'tags')
+
+    assert pa.types.is_list(tags_field.type)
+    assert tags_field.type.value_type == pa.string()
+    assert tags_field.type.value_field.nullable is False
+
+
+def test_map_with_scalar_value(full_zoo_ctx):
+    schema = derive_schema(full_zoo_ctx, 'fullzoo.Animal')
+
+    attributes_type = arrow_field(schema, 'attributes').type
+
+    assert pa.types.is_map(attributes_type)
+    assert attributes_type.key_type == pa.string()
+    assert attributes_type.item_type == pa.string()
+
+
+def test_map_with_message_value(full_zoo_ctx):
+    schema = derive_schema(full_zoo_ctx, 'fullzoo.Animal')
+
+    friends_type = arrow_field(schema, 'friends').type
+
+    assert pa.types.is_map(friends_type)
+    assert friends_type.key_type == pa.string()
+    assert pa.types.is_struct(friends_type.item_type)
+    assert friends_type.item_type.field('name').type == pa.string()
+
+
+def test_real_oneof_members_are_independent_nullable_fields(full_zoo_ctx):
+    schema = derive_schema(full_zoo_ctx, 'fullzoo.Animal')
+
+    assert arrow_field(schema, 'cage_id').type == pa.int32()
+    assert arrow_field(schema, 'cage_id').nullable is True
+    assert arrow_field(schema, 'zone_id').type == pa.int32()
+    assert arrow_field(schema, 'zone_id').nullable is True
