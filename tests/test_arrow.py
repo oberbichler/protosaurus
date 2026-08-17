@@ -87,13 +87,18 @@ def test_import_without_pyarrow_raises_clear_error(monkeypatch):
     monkeypatch.setitem(sys.modules, 'pyarrow', None)
     monkeypatch.delitem(sys.modules, 'protosaurus.arrow', raising=False)
 
-    with pytest.raises(ImportError, match=r'pyarrow'):
+    with pytest.raises(ImportError, match=r'protosaurus\[arrow\]'):
         importlib.import_module('protosaurus.arrow')
 
 
 def test_unknown_type_propagates_describe_error(ctx):
     with pytest.raises(RuntimeError, match='Could not find'):
         derive_schema(ctx, 'Nonexistent')
+
+
+def test_enum_type_name_raises_clear_error(full_zoo_ctx):
+    with pytest.raises(RuntimeError, match='it is an enum, not a message'):
+        derive_schema(full_zoo_ctx, 'fullzoo.Diet')
 
 
 _ZOO_PROTO = """

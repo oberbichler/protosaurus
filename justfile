@@ -9,11 +9,11 @@ default:
 
 # Install the package with test and lint dependencies
 install:
-    uv sync --extra test --extra lint
+    uv sync --extra test --extra lint --extra arrow
 
 # Rebuild the extension and reinstall it
 build:
-    uv sync --extra test --extra lint --reinstall-package protosaurus
+    uv sync --extra test --extra lint --extra arrow --reinstall-package protosaurus
 
 # Build source distribution
 sdist:

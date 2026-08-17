@@ -27,8 +27,18 @@ _SCALAR_ARROW_TYPES: dict[str, pa.DataType] = {
     'bytes': pa.binary(),
 }
 
+_ENUM_ARROW_TYPE: pa.DataType = pa.dictionary(pa.int32(), pa.string())
+
 
 def derive_schema(ctx: Context, type_name: str, *, max_depth: int | None = None) -> pa.Schema:
+    """
+    Derive a pyarrow Schema for the message type `type_name` from `ctx`.
+
+    Nested message types are resolved recursively into struct fields. A
+    self-referential message raises RuntimeError naming the cycle unless
+    `max_depth` is given, which caps recursion depth (root is depth 0) and
+    drops fields that would exceed it instead of raising.
+    """
     fields = _struct_fields(ctx, type_name, (type_name,), max_depth)
     return pa.schema(fields)
 
@@ -37,6 +47,11 @@ def _struct_fields(
     ctx: Context, type_name: str, path: tuple[str, ...], max_depth: int | None
 ) -> list[pa.Field]:
     message = ctx.describe(type_name)
+
+    if message['kind'] != 'message':
+        raise RuntimeError(
+            f'Cannot derive an Arrow schema for "{type_name}": it is an enum, not a message.'
+        )
 
     fields = []
     for field in message['fields']:
@@ -74,7 +89,7 @@ def _arrow_type(
         return _message_type(ctx, field['type_name'], path, max_depth)
 
     if kind == 'enum':
-        return pa.dictionary(pa.int32(), pa.string())
+        return _ENUM_ARROW_TYPE
 
     return _SCALAR_ARROW_TYPES[kind]
 
@@ -84,6 +99,12 @@ def _message_type(
 ) -> pa.StructType | None:
     prospective_depth = len(path)
 
+    # These two checks are mutually exclusive by design, not just by
+    # coincidence -- do not merge them into a single `if/elif` chain keyed on
+    # `max_depth is not None and prospective_depth > max_depth`. Once
+    # max_depth is set, depth alone decides whether to truncate; the cycle
+    # check must never run in that mode, or a cycle within the depth budget
+    # would incorrectly raise instead of being truncated once it exceeds it.
     if max_depth is not None:
         if prospective_depth > max_depth:
             return None
@@ -120,6 +141,6 @@ def _value_type(
         return _message_type(ctx, field['value_type_name'], path, max_depth)
 
     if value_kind == 'enum':
-        return pa.dictionary(pa.int32(), pa.string())
+        return _ENUM_ARROW_TYPE
 
     return _SCALAR_ARROW_TYPES[value_kind]

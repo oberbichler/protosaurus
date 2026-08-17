@@ -40,7 +40,7 @@ jobs:
           cpm-${{ runner.os }}-
 
     - name: Install
-      run: uv sync --extra test --verbose
+      run: uv sync --extra test --extra arrow --verbose
 
     - name: Test
       run: uv run pytest
