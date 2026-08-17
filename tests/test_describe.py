@@ -1,6 +1,5 @@
 import pytest
 
-
 _ZOO_PROTO = """
     syntax = "proto3";
     package zoo;
