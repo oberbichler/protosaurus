@@ -94,3 +94,82 @@ def test_import_without_pyarrow_raises_clear_error(monkeypatch):
 def test_unknown_type_propagates_describe_error(ctx):
     with pytest.raises(RuntimeError, match='Could not find'):
         derive_schema(ctx, 'Nonexistent')
+
+
+_ZOO_PROTO = """
+    syntax = "proto3";
+    package zoo;
+
+    message Animal {
+        string name = 1;
+        Person trainer = 2;
+    }
+
+    message Person {
+        string name = 1;
+    }
+    """
+
+
+@pytest.fixture
+def zoo_ctx(ctx):
+    ctx.add_proto('zoo', _ZOO_PROTO)
+    return ctx
+
+
+def test_nested_message_becomes_struct(zoo_ctx):
+    schema = derive_schema(zoo_ctx, 'zoo.Animal')
+
+    trainer_type = arrow_field(schema, 'trainer').type
+
+    assert pa.types.is_struct(trainer_type)
+    assert trainer_type.field('name').type == pa.string()
+
+
+def test_self_referential_message_without_max_depth_raises(ctx):
+    ctx.add_proto('tree', """
+        syntax = "proto3";
+        package tree;
+        message Node {
+            Node child = 1;
+        }
+        """)
+
+    with pytest.raises(RuntimeError, match=r'"tree\.Node" -> "tree\.Node" is a cycle'):
+        derive_schema(ctx, 'tree.Node')
+
+
+def test_self_referential_message_with_max_depth_drops_field(ctx):
+    ctx.add_proto('tree', """
+        syntax = "proto3";
+        package tree;
+        message Node {
+            Node child = 1;
+        }
+        """)
+
+    schema = derive_schema(ctx, 'tree.Node', max_depth=0)
+
+    assert schema.names == []
+
+
+def test_max_depth_also_cuts_non_cyclic_nesting(ctx):
+    ctx.add_proto('chain', """
+        syntax = "proto3";
+        package chain;
+        message A {
+            B b = 1;
+        }
+        message B {
+            C c = 1;
+        }
+        message C {
+            string value = 1;
+        }
+        """)
+
+    schema = derive_schema(ctx, 'chain.A', max_depth=1)
+
+    b_type = arrow_field(schema, 'b').type
+    assert pa.types.is_struct(b_type)
+    assert b_type.names == []  # C would be depth 2, dropped

@@ -65,4 +65,29 @@ def _arrow_field(
 def _arrow_type(
     ctx: Context, field: dict, path: tuple[str, ...], max_depth: int | None
 ) -> pa.DataType | None:
-    return _SCALAR_ARROW_TYPES[field['type']]
+    kind = field['type']
+
+    if kind in ('message', 'group'):
+        return _message_type(ctx, field['type_name'], path, max_depth)
+
+    return _SCALAR_ARROW_TYPES[kind]
+
+
+def _message_type(
+    ctx: Context, type_name: str, path: tuple[str, ...], max_depth: int | None
+) -> pa.StructType | None:
+    prospective_depth = len(path)
+
+    if max_depth is not None:
+        if prospective_depth > max_depth:
+            return None
+    elif type_name in path:
+        cycle_path = (*path, type_name)
+        cycle = ' -> '.join(f'"{p}"' for p in cycle_path)
+        raise RuntimeError(
+            f'Cannot derive an Arrow schema for "{path[0]}": {cycle} is a cycle. '
+            'Pass max_depth=N to derive_schema() to cut the recursion off explicitly.'
+        )
+
+    fields = _struct_fields(ctx, type_name, (*path, type_name), max_depth)
+    return pa.struct(fields)
