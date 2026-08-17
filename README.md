@@ -164,6 +164,39 @@ read_varint(b'\xac\x02', zigzag=True)   # (150, 2)
 
 Malformed input is rejected rather than read on indefinitely: data ending mid-varint raises `EOFError`, more than ten bytes raises `RuntimeError`, and an offset past the end raises `IndexError`.
 
+### Inspect a parsed schema
+
+`describe` returns one level of a message's or enum's shape -- fields with
+their number, type, label and presence; enum values inline where they
+terminate a field. Nested message and enum types are referenced by name
+only, so call `describe` again to go deeper -- this keeps a single call
+O(1) in schema depth and immune to cycles from self-referential messages.
+
+```python
+ctx.describe('zoo.Animal')
+# {
+#   "name": "zoo.Animal", "kind": "message",
+#   "fields": [
+#     {"name": "name", "json_name": "name", "number": 1, "type": "string",
+#      "label": "optional", "has_presence": False, "oneof": None},
+#     {"name": "diet", "json_name": "diet", "number": 2, "type": "enum",
+#      "type_name": "zoo.Diet", "label": "optional", "has_presence": False, "oneof": None,
+#      "enum_values": [{"name": "carnivorous", "number": 0}, {"name": "herbivorous", "number": 1}]},
+#   ],
+# }
+
+ctx.describe('zoo.Diet')
+# {"name": "zoo.Diet", "kind": "enum",
+#  "values": [{"name": "carnivorous", "number": 0}, {"name": "herbivorous", "number": 1}]}
+```
+
+A `map<K, V>` field is reported as `type: "map"` with `key_type`/`value_type`
+(and `value_type_name` when the value is a message or enum), not as the
+underlying synthetic map-entry message. A field's `oneof` key names the
+oneof it belongs to, but only for a real, multi-member oneof -- proto3's
+per-field synthetic oneofs (generated for every `optional` scalar) are never
+reported.
+
 ### Deserialize Protobuf from Kafka using a schema registry
 
 Protosaurus also ships a CLI that can deserialize Protobuf messages from Kafka automatically when a schema registry is available:
