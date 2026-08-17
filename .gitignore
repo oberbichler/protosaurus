@@ -1,4 +1,6 @@
 docs/superpowers/specs/
+.worktrees/
+.superpowers/
 protosaurus.egg-info
 _skbuild
 /dist

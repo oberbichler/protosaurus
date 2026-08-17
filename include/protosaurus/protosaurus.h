@@ -11,6 +11,7 @@
 #include <cstdint>       // uint64_t, int64_t, uint8_t
 #include <memory>        // unique_ptr
 #include <mutex>         // unique_lock
+#include <optional>      // optional
 #include <shared_mutex>  // shared_mutex, shared_lock
 #include <stdexcept>     // runtime_error, out_of_range
 #include <string>        // string
@@ -24,9 +25,13 @@ namespace protosaurus {
 using google::protobuf::Descriptor;
 using google::protobuf::DescriptorPool;
 using google::protobuf::DynamicMessageFactory;
+using google::protobuf::EnumDescriptor;
+using google::protobuf::EnumValueDescriptor;
+using google::protobuf::FieldDescriptor;
 using google::protobuf::FileDescriptor;
 using google::protobuf::FileDescriptorProto;
 using google::protobuf::Message;
+using google::protobuf::OneofDescriptor;
 using google::protobuf::compiler::Parser;
 using google::protobuf::io::ArrayInputStream;
 using google::protobuf::io::Tokenizer;
@@ -191,6 +196,22 @@ inline std::int64_t zigzag_decode(std::uint64_t value) {
 }
 
 
+// FieldDescriptor::Label has no built-in string form, unlike TypeName() for
+// Type. proto2 is the only syntax that can produce LABEL_REQUIRED; proto3
+// fields are always LABEL_OPTIONAL or LABEL_REPEATED.
+inline std::string label_name(FieldDescriptor::Label label) {
+  switch (label) {
+    case FieldDescriptor::LABEL_OPTIONAL:
+      return "optional";
+    case FieldDescriptor::LABEL_REQUIRED:
+      return "required";
+    case FieldDescriptor::LABEL_REPEATED:
+      return "repeated";
+  }
+  return "optional";  // unreachable; silences -Wreturn-type
+}
+
+
 // Subset of google::protobuf::json::PrintOptions exposed to callers. Every option
 // defaults to the ProtoJSON behaviour, so a default-constructed JsonOptions
 // produces exactly the output of MessageToJsonString without options.
@@ -224,6 +245,54 @@ struct ParseOptions {
   // Accept JSON fields the schema does not define instead of failing. Useful
   // when a producer has already moved to a newer schema than the one at hand.
   bool ignore_unknown_fields = false;
+};
+
+
+struct EnumValueInfo {
+  std::string name;
+  int number;
+};
+
+// One field of a message, as reported by Context::describe(). Optional
+// members are unset unless the comment next to them says otherwise.
+struct FieldInfo {
+  std::string name;
+  std::string json_name;
+  int number;
+  // One of FieldDescriptor::TypeName()'s own strings ("int32", "string",
+  // "message", "enum", "group", ...), or the synthetic "map".
+  std::string type;
+  // "optional", "required", or "repeated".
+  std::string label;
+  bool has_presence;
+  // Set only for a real (non-synthetic) oneof member.
+  std::optional<std::string> oneof;
+  // Set when type is "message", "group", or "enum".
+  std::optional<std::string> type_name;
+  // Set when type is "map".
+  std::optional<std::string> key_type;
+  std::optional<std::string> value_type;
+  // Set when type is "map" and the value is a message or enum.
+  std::optional<std::string> value_type_name;
+  // Non-empty only when type is "enum".
+  std::vector<EnumValueInfo> enum_values;
+};
+
+struct MessageInfo {
+  std::string name;
+  std::vector<FieldInfo> fields;
+};
+
+struct EnumInfo {
+  std::string name;
+  std::vector<EnumValueInfo> values;
+};
+
+// message is valid iff !is_enum; enum_info is valid iff is_enum.
+struct DescribeResult {
+  bool is_enum;
+  MessageInfo message;
+  EnumInfo enum_info;
 };
 
 
@@ -278,6 +347,53 @@ private:
     throw std::runtime_error(msg);
   }
 
+  void collect_enum_types(const Descriptor* descriptor, std::vector<std::string>& out) const {
+    for (int i = 0; i < descriptor->enum_type_count(); ++i) {
+      out.push_back(std::string(descriptor->enum_type(i)->full_name()));
+    }
+
+    for (int i = 0; i < descriptor->nested_type_count(); ++i) {
+      collect_enum_types(descriptor->nested_type(i), out);
+    }
+  }
+
+  // Unlike known_message_types(), this also lists enum types -- used only by
+  // describe(), which can target either. to_json/from_json/find_message_type
+  // keep listing message types alone, since they can never target an enum.
+  std::vector<std::string> known_types() const {
+    std::vector<std::string> out = known_message_types();
+
+    for (const std::string& filename : m_filenames) {
+      const FileDescriptor* file = m_pool.FindFileByName(filename);
+
+      if (file == nullptr) continue;
+
+      for (int i = 0; i < file->enum_type_count(); ++i) {
+        out.push_back(std::string(file->enum_type(i)->full_name()));
+      }
+
+      for (int i = 0; i < file->message_type_count(); ++i) {
+        collect_enum_types(file->message_type(i), out);
+      }
+    }
+
+    return out;
+  }
+
+  [[noreturn]] void throw_unknown_type(const std::string& type_name) const {
+    std::string msg = "Could not find message or enum type \"" + type_name + "\"";
+
+    const std::vector<std::string> known = known_types();
+
+    if (known.empty()) {
+      msg += ". No protos have been added yet";
+    } else {
+      msg += ". Known types: " + join(known, ", ");
+    }
+
+    throw std::runtime_error(msg);
+  }
+
   const Descriptor* find_message_type(const std::string& message_type) const {
     const Descriptor* descriptor = m_pool.FindMessageTypeByName(message_type);
 
@@ -309,6 +425,71 @@ private:
 
     throw std::runtime_error("Message of type \"" + message_type +
                              "\" is missing required fields: " + message.InitializationErrorString());
+  }
+
+  FieldInfo describe_field(const FieldDescriptor* field) const {
+    FieldInfo info;
+    info.name = field->name();
+    info.json_name = field->json_name();
+    info.number = field->number();
+    info.has_presence = field->has_presence();
+
+    // FieldDescriptor::label() was removed from the public API; is_required()
+    // and is_repeated() are the replacement primitives it used to wrap.
+    FieldDescriptor::Label label = FieldDescriptor::LABEL_OPTIONAL;
+    if (field->is_required()) {
+      label = FieldDescriptor::LABEL_REQUIRED;
+    } else if (field->is_repeated()) {
+      label = FieldDescriptor::LABEL_REPEATED;
+    }
+    info.label = label_name(label);
+
+    // real_containing_oneof() is null both for fields outside any oneof and
+    // for the synthetic one-field oneof proto3 uses to track `optional`
+    // presence, so it already excludes what OneofDescriptor::is_synthetic()
+    // (a private member here) would have.
+    if (const OneofDescriptor* oneof = field->real_containing_oneof(); oneof != nullptr) {
+      info.oneof = oneof->name();
+    }
+
+    if (field->is_map()) {
+      info.type = "map";
+
+      // Map entry messages are synthesized with exactly two fields, "key"
+      // (number 1) and "value" (number 2), always in that declaration
+      // order -- a stable protobuf invariant, not an assumption about this
+      // particular schema.
+      const Descriptor* entry = field->message_type();
+      const FieldDescriptor* key_field = entry->field(0);
+      const FieldDescriptor* value_field = entry->field(1);
+
+      info.key_type = key_field->type_name();
+      info.value_type = value_field->type_name();
+
+      if (value_field->type() == FieldDescriptor::TYPE_MESSAGE || value_field->type() == FieldDescriptor::TYPE_GROUP) {
+        info.value_type_name = std::string(value_field->message_type()->full_name());
+      } else if (value_field->type() == FieldDescriptor::TYPE_ENUM) {
+        info.value_type_name = std::string(value_field->enum_type()->full_name());
+      }
+
+      return info;
+    }
+
+    info.type = field->type_name();
+
+    if (field->type() == FieldDescriptor::TYPE_MESSAGE || field->type() == FieldDescriptor::TYPE_GROUP) {
+      info.type_name = std::string(field->message_type()->full_name());
+    } else if (field->type() == FieldDescriptor::TYPE_ENUM) {
+      const EnumDescriptor* enum_descriptor = field->enum_type();
+      info.type_name = std::string(enum_descriptor->full_name());
+
+      for (int i = 0; i < enum_descriptor->value_count(); ++i) {
+        const EnumValueDescriptor* value = enum_descriptor->value(i);
+        info.enum_values.push_back(EnumValueInfo{std::string(value->name()), value->number()});
+      }
+    }
+
+    return info;
   }
 
 public:
@@ -478,6 +659,35 @@ public:
     }
 
     return std::string(descriptor->full_name());
+  }
+
+  DescribeResult describe(const std::string& type_name) const {
+    std::shared_lock lock(m_mutex);
+
+    if (const Descriptor* descriptor = m_pool.FindMessageTypeByName(type_name); descriptor != nullptr) {
+      MessageInfo info;
+      info.name = std::string(descriptor->full_name());
+
+      for (int i = 0; i < descriptor->field_count(); ++i) {
+        info.fields.push_back(describe_field(descriptor->field(i)));
+      }
+
+      return DescribeResult{false, std::move(info), {}};
+    }
+
+    if (const EnumDescriptor* enum_descriptor = m_pool.FindEnumTypeByName(type_name); enum_descriptor != nullptr) {
+      EnumInfo info;
+      info.name = std::string(enum_descriptor->full_name());
+
+      for (int i = 0; i < enum_descriptor->value_count(); ++i) {
+        const EnumValueDescriptor* value = enum_descriptor->value(i);
+        info.values.push_back(EnumValueInfo{std::string(value->name()), value->number()});
+      }
+
+      return DescribeResult{true, {}, std::move(info)};
+    }
+
+    throw_unknown_type(type_name);
   }
 };
 

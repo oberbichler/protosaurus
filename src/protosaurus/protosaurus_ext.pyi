@@ -61,6 +61,24 @@ class Context:
         the range of messages it addresses.
         """
 
+    def describe(self, type_name: str) -> dict:
+        """
+        Describe a message or enum type's shape.
+
+        `type_name` is a fully qualified message or enum name, resolved the same way
+        `to_json`'s `message_type` argument is. For a message, the result is
+        {"name", "kind": "message", "fields": [...]}, where every field has at least
+        name, json_name, number, type, label, has_presence and oneof, plus
+        type_name/enum_values/key_type/value_type/value_type_name where relevant.
+        For an enum, the result is {"name", "kind": "enum", "values": [...]}.
+
+        Nested message and enum types are referenced by name only, one level per
+        call -- call describe again to resolve them further.
+
+        Raises RuntimeError if neither a message nor an enum type of that name is
+        known, with a listing of known message and enum types.
+        """
+
 def read_varint(data: bytes, offset: int = 0, *, zigzag: bool = False) -> tuple[int, int]:
     """
     Read one base-128 varint from `data`, starting at `offset`.
