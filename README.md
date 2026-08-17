@@ -126,6 +126,22 @@ ctx.from_json('Animal', '{"name":"Iguanodon","colour":"green"}')
 ctx.from_json('Animal', '{"name":"Iguanodon","colour":"green"}', ignore_unknown_fields=True)
 ```
 
+Messages nested more than 100 levels deep — including self-referential ones — are rejected, matching protobuf's built-in recursion guard. `to_json` reports this with the same generic "not valid wire format" `RuntimeError` used for actually corrupt data, so treat that error as a possible depth-limit hit rather than corruption when working with recursive schemas.
+
+The well-known types (`google.protobuf.Timestamp`, `Duration`, `Any`, `Struct`, the wrapper types, ...) are not bundled, so importing e.g. `google/protobuf/timestamp.proto` fails with "Import has not been loaded" unless a matching `.proto` is registered first. Protobuf's special JSON mapping is triggered by fully qualified name, so adding a stub with the exact package, message name and field layout is enough to get the special representation (RFC 3339 strings for `Timestamp`, `"5.500s"` for `Duration`, etc.), round-tripping through `to_json`/`from_json` like the real types:
+
+```python
+ctx.add_proto('google/protobuf/timestamp.proto',
+    """
+    syntax = "proto3";
+    package google.protobuf;
+    message Timestamp {
+        int64 seconds = 1;
+        int32 nanos = 2;
+    }
+    """)
+```
+
 ### Read varints from the wire format
 
 `read_varint` decodes a single base-128 varint out of a `bytes` object and returns the value together with the position just after it, so consecutive reads need no state of their own:
