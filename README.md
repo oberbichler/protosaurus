@@ -197,6 +197,71 @@ oneof it belongs to, but only for a real, multi-member oneof -- proto3's
 per-field synthetic oneofs (generated for every `optional` scalar) are never
 reported.
 
+### Derive an Arrow schema
+
+`protosaurus.arrow.derive_schema` builds a [pyarrow](https://arrow.apache.org/docs/python/) `Schema` from a parsed message type, so protobuf-encoded data can be written straight to Arrow/Parquet without hand-writing a schema. It requires the `arrow` extra:
+
+```bash
+pip install protosaurus[arrow]
+```
+
+```python
+from protosaurus import Context
+from protosaurus.arrow import derive_schema
+
+ctx = Context()
+ctx.add_proto('zoo.proto', """
+    syntax = "proto3";
+    message Person {
+        string name = 1;
+    }
+    message Animal {
+        string name = 1;
+        Diet diet = 2;
+        repeated string tags = 3;
+        Person trainer = 4;
+    }
+    enum Diet {
+        CARNIVOROUS = 0;
+        HERBIVOROUS = 1;
+    }
+    """)
+
+schema = derive_schema(ctx, 'Animal')
+
+print(schema)
+# name: string
+# diet: dictionary<values=string, indices=int32, ordered=0>
+# tags: list<item: string not null>
+#   child 0, item: string not null
+# trainer: struct<name: string>
+#   child 0, name: string
+```
+
+Nested message types are followed recursively into `struct` fields. A self-referential message raises `RuntimeError` naming the cycle unless `max_depth` is passed, which caps recursion depth uniformly and drops fields that would exceed it instead of raising:
+
+```python
+schema = derive_schema(ctx, 'Animal', max_depth=1)
+```
+
+| Protobuf | Arrow |
+| --- | --- |
+| `int32`/`sint32`/`sfixed32` | `int32` |
+| `int64`/`sint64`/`sfixed64` | `int64` |
+| `uint32`/`fixed32` | `uint32` |
+| `uint64`/`fixed64` | `uint64` |
+| `float` | `float32` |
+| `double` | `float64` |
+| `bool` | `bool` |
+| `string` | `string` |
+| `bytes` | `binary` |
+| `enum` | `dictionary(int32, string)`, values are the enum's names |
+| `message`/`group` | `struct` |
+| `map<K, V>` | `map(K, V)` |
+| `repeated` | `list` with non-nullable items |
+
+`oneof` members appear as independent nullable fields, same as `to_json`. Proto2 `required` fields are the only non-nullable ones; every other field is nullable.
+
 ### Deserialize Protobuf from Kafka using a schema registry
 
 Protosaurus also ships a CLI that can deserialize Protobuf messages from Kafka automatically when a schema registry is available:
